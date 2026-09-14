@@ -579,8 +579,8 @@ function TopHeader({
           </label>
           <div className="header-actions">
             <button className="header-icon" type="button" onClick={onOrders} aria-label="Keranjang">
+              <ShoppingCart />
               {myOrderCount > 0 ? <i>{myOrderCount}</i> : null}
-
             </button>
             <button className="header-icon" type="button" onClick={onReport} aria-label="Laporkan masalah">
               <Bell />
