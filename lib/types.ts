@@ -1,8 +1,11 @@
+export type AccountType = "seller" | "buyer";
+
 export interface User {
   id: string;
   name: string;
   initials: string;
   email: string;
+  accountType: AccountType;
   role: string;
   organization: string;
   location: string;
@@ -23,6 +26,13 @@ export interface Price {
   image: string;
 }
 
+export interface LotQuality {
+  cleanHandling: boolean;
+  packaging: string;
+  temperature: string;
+  dispatch: string;
+}
+
 export interface Lot {
   id: string;
   name: string;
@@ -39,6 +49,7 @@ export interface Lot {
   rating: number;
   sold: number;
   promo: string | null;
+  quality?: LotQuality;
 }
 
 export interface Order {
@@ -56,16 +67,29 @@ export interface OrderView extends Order {
   seller: string;
 }
 
+export interface IssueReport {
+  id: string;
+  reporterUserId: string;
+  reporter: string;
+  lotId: string | null;
+  category: string;
+  description: string;
+  status: "Baru" | "Ditinjau" | "Selesai";
+  createdAt: string;
+}
+
 export interface Database {
   users: User[];
   prices: Price[];
   lots: Lot[];
   orders: Order[];
+  reports: IssueReport[];
 }
 
 export interface RegisterInput {
   name?: string;
   role?: string;
+  accountType?: AccountType;
   organization?: string;
   location?: string;
   email?: string;

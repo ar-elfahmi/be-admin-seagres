@@ -29,6 +29,7 @@ export async function startSession(user: User): Promise<void> {
   store.set(COOKIE, `${target.id}.${token}`, {
     httpOnly: true,
     sameSite: "lax",
+    secure: true,
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });

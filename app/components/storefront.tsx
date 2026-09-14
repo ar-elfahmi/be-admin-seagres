@@ -7,8 +7,8 @@ import {
   Bell,
   CalendarDays,
   Check,
+  ClipboardCheck,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Clock,
   Fish,
@@ -25,7 +25,6 @@ import {
   ShieldCheck,
   Shrimp,
   ShoppingCart,
-  Sparkles,
   Star,
   Store,
   Truck,
@@ -35,7 +34,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { createLot, logout, preorder, setOrderStatus } from "../actions";
+import { createLot, logout, preorder, reportIssue, setOrderStatus } from "../actions";
 import type { Lot, OrderView, Price, PublicUser } from "../../lib/types";
 
 interface SlideItem {
@@ -55,6 +54,7 @@ const SLIDES: SlideItem[] = [
 
 const FILTERS = ["Semua", "Bandeng", "Udang", "Kerang", "Olahan"];
 const SORTS: [string, string][] = [["terbaru", "Terbaru"], ["murah", "Harga terendah"], ["laris", "Terlaris"]];
+const LOTS_PER_PAGE = 6;
 const money = new Intl.NumberFormat("id-ID");
 
 function isLocalAsset(src: string): boolean {
@@ -70,10 +70,16 @@ function secondsLeft(): number {
 }
 
 function useFlashCountdown(): string {
-  const [left, setLeft] = useState(secondsLeft);
+  // Start from the same value on the server and client so React can hydrate
+  // the marketplace controls before the time-sensitive counter begins.
+  const [left, setLeft] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setLeft(secondsLeft()), 1000);
-    return () => window.clearInterval(timer);
+    const initialUpdate = window.setTimeout(() => setLeft(secondsLeft()), 0);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(initialUpdate);
+    };
   }, []);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(Math.floor(left / 3600))}:${pad(Math.floor((left % 3600) / 60))}:${pad(left % 60)}`;
@@ -202,6 +208,31 @@ function CreateLotForm({ onSubmit, busy }: { onSubmit: (data: FormData) => void;
           Lokasi umum<input name="location" placeholder="ex: Ujungpangkah" required />
         </label>
       </div>
+      <fieldset className="quality-checklist">
+        <legend>Checklist mutu lot</legend>
+        <label className="quality-toggle">
+          <input name="cleanHandling" type="checkbox" defaultChecked />
+          <span><Check aria-hidden="true" /> Penanganan bersih sudah dicek</span>
+        </label>
+        <div className="form-grid">
+          <label>
+            Kemasan
+            <select name="packaging" defaultValue="Es & box food grade">
+              <option>Es & box food grade</option>
+              <option>Keranjang bersih</option>
+              <option>Kemasan olahan tersegel</option>
+            </select>
+          </label>
+          <label>
+            Suhu simpan <small>(opsional)</small>
+            <input name="temperature" placeholder="ex: 2–4°C" />
+          </label>
+        </div>
+        <label>
+          Rencana pengiriman
+          <input name="dispatch" placeholder="ex: Ambil di titik konsolidasi, 14.00 WIB" />
+        </label>
+      </fieldset>
       <label>
         Foto hasil <small>(opsional, maks 4 MB)</small>
         <input className="file-input" name="photo" type="file" accept="image/*" />
@@ -217,16 +248,26 @@ function LotDetail({
   lot,
   qrUrl,
   onPreorder,
+  onReport,
   busy,
+  canPreorder,
 }: {
   lot: Lot;
   qrUrl: string;
   onPreorder: (quantity: number) => void;
+  onReport: () => void;
   busy: boolean;
+  canPreorder: boolean;
 }) {
   const [quantity, setQuantity] = useState(5);
   const pct = discountPct(lot);
   const soldOut = lot.weight <= 0;
+  const quality = lot.quality ?? {
+    cleanHandling: true,
+    packaging: lot.type === "Olahan" ? "Kemasan olahan tersegel" : "Kemasan kelompok terverifikasi",
+    temperature: lot.promo === "Rantai Dingin" ? "2–4°C" : "Dicatat saat pengiriman",
+    dispatch: "Jadwal pengambilan dikonfirmasi kelompok",
+  };
   return (
     <div className="lot-detail">
       <div className="pdp-top">
@@ -264,8 +305,22 @@ function LotDetail({
           {lot.time} · Lokasi umum saja, tanpa titik kapal
         </p>
       </div>
+      <section className="lot-quality" aria-label="Checklist mutu lot">
+        <div className="lot-quality-head">
+          <span className="quality-icon"><ShieldCheck aria-hidden="true" /></span>
+          <p><strong>Mutu lot</strong><span>Dicatat kelompok sebelum ditayangkan</span></p>
+        </div>
+        <div className="quality-rows">
+          <span><Check aria-hidden="true" /> Penanganan bersih <b>{quality.cleanHandling ? "Sesuai" : "Perlu cek"}</b></span>
+          <span><Package aria-hidden="true" /> {quality.packaging} <b>Sesuai</b></span>
+          <span><Truck aria-hidden="true" /> {quality.temperature} <b>Dicatat</b></span>
+        </div>
+        <p className="dispatch-note">{quality.dispatch}</p>
+      </section>
       {soldOut ? (
         <p className="form-error">Stok lot ini sudah habis — hubungi kelompok penjual untuk panen berikutnya.</p>
+      ) : !canPreorder ? (
+        <p className="lot-note lot-role-note"><ShieldCheck aria-hidden="true" /> Akun penjual dapat melihat detail lot, tetapi pre-order dilakukan dari akun pembeli.</p>
       ) : (
         <div className="preorder-row">
           <label>
@@ -280,7 +335,94 @@ function LotDetail({
           </button>
         </div>
       )}
+      <button className="report-link" type="button" onClick={onReport}>Laporkan masalah pada lot ini</button>
     </div>
+  );
+}
+
+function ReportIssueForm({ lot, onSubmit, busy }: { lot?: Lot; onSubmit: (data: FormData) => void; busy: boolean }) {
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSubmit(new FormData(event.currentTarget));
+  }
+
+  return (
+    <form className="form report-form" onSubmit={submit}>
+      <div className="report-intro">
+        <Bell aria-hidden="true" />
+        <p><strong>Tim pendamping akan menindaklanjuti laporanmu.</strong><span>Lokasi kapal dan data pribadi tidak dipublikasikan.</span></p>
+      </div>
+      <input name="lotId" type="hidden" value={lot?.id ?? ""} />
+      {lot ? <p className="report-lot">Lot terkait: <strong>{lot.name}</strong> · {lot.id}</p> : null}
+      <label>
+        Jenis masalah
+        <select name="category" defaultValue="Mutu produk">
+          <option>Mutu produk</option>
+          <option>Keterlambatan pengambilan</option>
+          <option>Lot tidak sesuai</option>
+          <option>Masalah lain</option>
+        </select>
+      </label>
+      <label>
+        Ceritakan yang terjadi
+        <textarea name="description" minLength={10} placeholder="Jelaskan kondisi lot atau pesanan secara singkat…" required />
+      </label>
+      <button className="primary-button form-submit" type="submit" disabled={busy}>{busy ? "Mengirim…" : "Kirim laporan"}</button>
+    </form>
+  );
+}
+
+const SUPPLY_PLAN = [
+  { day: "Hari ini", type: "Bandeng", amount: "120 kg", place: "Ujungpangkah" },
+  { day: "Besok", type: "Udang", amount: "80 kg", place: "Manyar" },
+  { day: "15 Sep", type: "Kerang", amount: "150 kg", place: "Sidayu" },
+  { day: "16 Sep", type: "Olahan", amount: "40 pack", place: "Gresik Kota" },
+  { day: "17 Sep", type: "Bandeng", amount: "90 kg", place: "Duduk Sampeyan" },
+];
+
+function SupplyPlan({ onFilter }: { onFilter: (filter: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const visiblePlan = expanded ? SUPPLY_PLAN : SUPPLY_PLAN.slice(0, 3);
+  return (
+    <section className="supply-panel" id="pasokan" aria-labelledby="supply-title">
+      <div className="ops-heading">
+        <div><CalendarDays aria-hidden="true" /><h2 id="supply-title">Rencana pasokan</h2></div>
+        <span>3 hari ke depan</span>
+      </div>
+      <div className="supply-list">
+        {visiblePlan.map((item) => (
+          <button key={`${item.day}-${item.type}`} type="button" onClick={() => onFilter(item.type)}>
+            <time>{item.day}</time>
+            <strong>{item.type}</strong>
+            <span>{item.amount}</span>
+            <small>{item.place}</small>
+          </button>
+        ))}
+      </div>
+      <button className="panel-link" type="button" onClick={() => setExpanded((value) => !value)}>
+        {expanded ? "Ringkas rencana" : "Lihat rencana lengkap"} <ChevronRight aria-hidden="true" />
+      </button>
+    </section>
+  );
+}
+
+function OperationsPanel({ lots, orders, onOrders }: { lots: Lot[]; orders: OrderView[]; onOrders: () => void }) {
+  const pending = orders.filter((order) => order.status === "Baru");
+  const unmatched = lots.filter((lot) => lot.weight > 0 && (lot.sold ?? 0) === 0).length;
+  const demand = orders.filter((order) => order.status !== "Ditolak").reduce((sum, order) => sum + order.quantity, 0);
+  return (
+    <section className="ops-summary" aria-labelledby="ops-title">
+      <div className="ops-heading">
+        <div><ClipboardCheck aria-hidden="true" /><h2 id="ops-title">Produksi & permintaan</h2></div>
+        <button type="button" onClick={onOrders}>Buka pesanan <ChevronRight aria-hidden="true" /></button>
+      </div>
+      <div className="ops-stats">
+        <div><span>Lot aktif</span><strong>{lots.filter((lot) => lot.weight > 0).length}</strong><small>siap ditawarkan</small></div>
+        <div><span>Permintaan</span><strong>{demand} kg</strong><small>pre-order aktif</small></div>
+        <div><span>Butuh promosi</span><strong>{unmatched}</strong><small>lot belum terserap</small></div>
+      </div>
+      <p className={pending.length ? "ops-alert" : "ops-clear"}>{pending.length ? `${pending.length} pesanan perlu dikonfirmasi kelompok hari ini.` : "Semua pesanan hari ini sudah ditangani."}</p>
+    </section>
   );
 }
 
@@ -322,9 +464,12 @@ function OrdersPanel({
   }, {});
 
   return (
-    <div>
+    <div className="orders-panel">
       <div className="aggregate-block">
-        <span>Agregasi permintaan kelompok</span>
+        <div className="aggregate-heading">
+          <span>Ringkasan permintaan</span>
+          <small>Lot yang masih aktif</small>
+        </div>
         {Object.entries(totals).length ? (
           Object.entries(totals).map(([product, quantity]) => (
             <p key={product}><strong>{product}</strong><b>{quantity} kg</b></p>
@@ -336,23 +481,32 @@ function OrdersPanel({
       <div className="order-list">
         {orders.length ? orders.map((order) => {
           const mine = order.seller === user.organization;
+          const pickup = order.status === "Diterima"
+            ? "Siap diambil · TPI Gresik, 14.00 WIB"
+            : order.status === "Ditolak"
+              ? "Pesanan ditolak kelompok"
+              : "Menunggu konfirmasi kelompok";
           return (
-            <div key={order.id}>
-              <Store />
-              <p>
-                <strong>{order.buyer}</strong>
-                <span>{order.quantity} kg {order.product} · {order.seller}</span>
-              </p>
-              <span className="order-side">
+            <article className="order-item" key={order.id}>
+              <div className="order-item-topline">
+                <span className="order-icon"><Store aria-hidden="true" /></span>
+                <div className="order-identity">
+                  <strong>{order.buyer}</strong>
+                  <span>{order.quantity} kg · {order.product}</span>
+                </div>
                 <b className={`status-${order.status.toLowerCase()}`}>{order.status}</b>
-                {mine && order.status === "Baru" ? (
-                  <span className="order-actions">
-                    <button className="accept" type="button" disabled={busy} onClick={() => onStatus(order.id, "Diterima")}>Terima</button>
-                    <button className="reject" type="button" disabled={busy} onClick={() => onStatus(order.id, "Ditolak")}>Tolak</button>
-                  </span>
-                ) : null}
-              </span>
-            </div>
+              </div>
+              <div className="order-details">
+                <span className="order-seller">Lot dari {order.seller}</span>
+                <span className="delivery-note"><Truck aria-hidden="true" /> {pickup}</span>
+              </div>
+              {mine && order.status === "Baru" ? (
+                <div className="order-actions">
+                  <button className="accept" type="button" disabled={busy} onClick={() => onStatus(order.id, "Diterima")}>Terima pesanan</button>
+                  <button className="reject" type="button" disabled={busy} onClick={() => onStatus(order.id, "Ditolak")}>Tolak</button>
+                </div>
+              ) : null}
+            </article>
           );
         }) : (
           <div className="empty-state inline"><ShoppingCart /><h3>Belum ada pre-order</h3><p>Pesanan pembeli akan muncul di sini.</p></div>
@@ -371,7 +525,9 @@ function TopHeader({
   onCreate,
   onOrders,
   onProfile,
+  onReport,
   onJump,
+  accountType,
 }: {
   user: PublicUser;
   query: string;
@@ -381,8 +537,11 @@ function TopHeader({
   onCreate: () => void;
   onOrders: () => void;
   onProfile: () => void;
+  onReport: () => void;
   onJump: (id: string) => void;
+  accountType: PublicUser["accountType"];
 }) {
+  const isBuyer = accountType === "buyer";
   return (
     <header className="tokopedia-header">
       <div className="top-strip">
@@ -412,13 +571,12 @@ function TopHeader({
               <ShoppingCart />
               {orders.length > 0 ? <i>{orders.length}</i> : null}
             </button>
-            <button className="header-icon" type="button" onClick={onOrders} aria-label="Notifikasi">
+            <button className="header-icon" type="button" onClick={onReport} aria-label="Laporkan masalah">
               <Bell />
             </button>
             <span className="header-divider" />
-            <button className="sell-btn" type="button" onClick={onCreate}>
-              <Plus /> Jual
-            </button>
+            <span className="role-pill">{isBuyer ? "Pembeli" : "Penjual"}</span>
+            {!isBuyer ? <button className="sell-btn" type="button" onClick={onCreate}><Plus /> Jual</button> : null}
             <button type="button" className="avatar" onClick={onProfile} aria-label={`Buka profil ${user.name}`}>{user.initials}</button>
           </div>
         </div>
@@ -433,21 +591,21 @@ function TopHeader({
   );
 }
 
-function HeroSlider({ onShop }: { onShop: (filter: string) => void; onSell: () => void }) {
+function HeroSlider({ onShop }: { onShop: (filter: string) => void }) {
   const [slide, setSlide] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setSlide((s) => (s + 1) % SLIDES.length), 5000);
     return () => window.clearInterval(timer);
-  }, [slide]);
+  }, []);
 
   return (
     <section className="hero-slider" aria-label="Sorotan hari ini">
       {SLIDES.map((item, i) => (
         <article key={item.id} className={i === slide ? "slide active" : "slide"}>
-          <Image src={item.image} alt="" fill sizes="(max-width: 880px) 100vw, 72vw" className="slide-img" />
+          <Image src={item.image} alt="" fill loading={i === 0 ? "eager" : "lazy"} sizes="(max-width: 880px) 100vw, 72vw" className="slide-img" />
           <div className="slide-shade" />
           <div className="slide-copy">
-            <span className="slide-tag"><Sparkles aria-hidden="true" /> {item.tag}</span>
+            <span className="slide-tag">{item.tag}</span>
             <h1>{item.title}</h1>
             <p>{item.sub}</p>
             <div className="slide-cta">
@@ -458,8 +616,6 @@ function HeroSlider({ onShop }: { onShop: (filter: string) => void; onSell: () =
           </div>
         </article>
       ))}
-      <button className="slider-nav prev" type="button" onClick={() => setSlide((s) => (s - 1 + SLIDES.length) % SLIDES.length)} aria-label="Slide sebelumnya"><ChevronLeft /></button>
-      <button className="slider-nav next" type="button" onClick={() => setSlide((s) => (s + 1) % SLIDES.length)} aria-label="Slide berikutnya"><ChevronRight /></button>
       <div className="slider-dots">
         {SLIDES.map((item, i) => (
           <button key={item.id} type="button" className={i === slide ? "active" : ""} onClick={() => setSlide(i)} aria-label={`Ke slide ${i + 1}`} />
@@ -512,6 +668,7 @@ type ModalType =
   | { type: "lot"; lot: Lot }
   | { type: "profile" }
   | { type: "orders" }
+  | { type: "report"; lot?: Lot }
   | null;
 
 interface Notice {
@@ -532,11 +689,13 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
   const [filter, setFilter] = useState("Semua");
   const [sort, setSort] = useState("terbaru");
   const [query, setQuery] = useState("");
+  const [visibleLots, setVisibleLots] = useState(LOTS_PER_PAGE);
   const [modal, setModal] = useState<ModalType>(null);
   const [qrUrl, setQrUrl] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
   const router = useRouter();
+  const isBuyer = user.accountType === "buyer";
 
   const normalizedQuery = query.trim().toLocaleLowerCase("id-ID");
   const filteredLots = lots.filter(
@@ -547,6 +706,7 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
   let displayLots = filteredLots;
   if (sort === "murah") displayLots = [...filteredLots].sort((a, b) => a.price - b.price);
   if (sort === "laris") displayLots = [...filteredLots].sort((a, b) => (b.sold ?? 0) - (a.sold ?? 0));
+  const pagedLots = displayLots.slice(0, visibleLots);
   const totalWeight = lots.reduce((sum, lot) => sum + lot.weight, 0);
   const activeGroups = new Set(lots.filter((lot) => lot.time.startsWith("Hari ini")).map((lot) => lot.seller)).size;
 
@@ -607,6 +767,12 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
         rating: 5,
         sold: 0,
         promo: "Baru dicatat",
+        quality: {
+          cleanHandling: formData.get("cleanHandling") === "on",
+          packaging: String(formData.get("packaging") || "Kemasan standar"),
+          temperature: String(formData.get("temperature") || "Belum dicatat"),
+          dispatch: String(formData.get("dispatch") || "Jadwal menyusul"),
+        },
       };
       setLots((prev) => [fallbackLot, ...prev]);
       flash(`${fallbackLot.name} tersimpan permanen dan tampil di katalog.`);
@@ -651,6 +817,23 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
 
     setBusy(false);
     setModal(null);
+  }
+
+  async function submitReport(formData: FormData) {
+    setBusy(true);
+    try {
+      const res = await reportIssue(formData);
+      if (res?.error) {
+        flash(res.error, true);
+        setBusy(false);
+        return;
+      }
+      flash("Laporan diterima. Pendamping akan menindaklanjuti melalui SeaGres.");
+      setModal(null);
+    } catch {
+      flash("Laporan belum bisa dikirim. Coba lagi sebentar.", true);
+    }
+    setBusy(false);
   }
 
   async function manageOrder(orderId: string, status: string) {
@@ -708,12 +891,14 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
         onCreate={() => setModal({ type: "create" })}
         onOrders={() => setModal({ type: "orders" })}
         onProfile={() => setModal({ type: "profile" })}
+        onReport={() => setModal({ type: "report" })}
         onJump={goToId}
+        accountType={user.accountType}
       />
 
       <div className="page-shell">
         <section className="hero-grid">
-          <HeroSlider onShop={shopCategory} onSell={() => setModal({ type: "create" })} />
+          <HeroSlider onShop={shopCategory} />
           <div className="hero-side anim anim2">
             <div className="side-card summary-card compact">
               <div className="summary-stats">
@@ -721,7 +906,7 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
                 <span><ShoppingCart aria-hidden="true" /><strong>{orders.length}</strong>pesanan</span>
                 <span><Truck aria-hidden="true" /><strong>{activeGroups}</strong>kelompok</span>
               </div>
-              <button type="button" onClick={() => setModal({ type: "orders" })}>Lihat pesanan <ChevronRight aria-hidden="true" /></button>
+              <button type="button" onClick={() => setModal({ type: "orders" })}>{isBuyer ? "Lihat pre-order saya" : "Lihat pesanan masuk"} <ChevronRight aria-hidden="true" /></button>
             </div>
           </div>
         </section>
@@ -748,10 +933,10 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
               <span className="cat-icon"><Scale aria-hidden="true" /></span>
               <span>Harga</span>
             </button>
-            <button type="button" onClick={() => setModal({ type: "create" })}>
+            {!isBuyer ? <button type="button" onClick={() => setModal({ type: "create" })}>
               <span className="cat-icon cat-plus"><Plus aria-hidden="true" /></span>
               <span>Jual</span>
-            </button>
+            </button> : null}
           </div>
         </section>
 
@@ -801,7 +986,7 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
             </label>
             <div className="product-grid">
               {displayLots.length ? (
-                displayLots.map((lot, i) => <ProductCard key={lot.id} lot={lot} onOpen={openLot} index={i} />)
+                pagedLots.map((lot, i) => <ProductCard key={lot.id} lot={lot} onOpen={openLot} index={i} />)
               ) : (
                 <div className="empty-state">
                   <Search />
@@ -810,8 +995,8 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
                 </div>
               )}
             </div>
-            {displayLots.length > 0 ? (
-              <button className="load-more" type="button" onClick={scrollToTop}>
+            {pagedLots.length < displayLots.length ? (
+              <button className="load-more" type="button" onClick={() => setVisibleLots((count) => Math.min(count + LOTS_PER_PAGE, displayLots.length))}>
                 Muat lebih banyak <ChevronDown aria-hidden="true" />
               </button>
             ) : null}
@@ -875,6 +1060,11 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
           </aside>
         </div>
 
+        {!isBuyer ? <section className="operations-grid anim anim3" id="operasional" aria-label="Operasional SeaGres">
+          <SupplyPlan onFilter={shopCategory} />
+          <OperationsPanel lots={lots} orders={orders} onOrders={() => setModal({ type: "orders" })} />
+        </section> : null}
+
         <footer className="market-footer">
           <div>
             <strong>sea<strong className="brand-green">gres</strong></strong>
@@ -887,9 +1077,9 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
             <button type="button" onClick={() => goToId("kategori")}>Kategori</button>
           </div>
           <div>
-            <b>Jual</b>
-            <button type="button" onClick={() => setModal({ type: "create" })}>Catat hasil panen</button>
-            <button type="button" onClick={() => setModal({ type: "orders" })}>Agregasi pesanan</button>
+            <b>{isBuyer ? "Belanja" : "Jual"}</b>
+            <button type="button" onClick={() => isBuyer ? scrollToCatalog() : setModal({ type: "create" })}>{isBuyer ? "Cari lot segar" : "Catat hasil panen"}</button>
+            <button type="button" onClick={() => setModal({ type: "orders" })}>{isBuyer ? "Pre-order saya" : "Pesanan masuk"}</button>
           </div>
           <div>
             <b>Akun</b>
@@ -908,10 +1098,13 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
           <Search />
           <span>Katalog</span>
         </button>
-        <button type="button" className="bottom-sell" onClick={() => setModal({ type: "create" })}>
+        {isBuyer ? <button type="button" className="bottom-sell bottom-price" onClick={() => goToId("harga")}>
+          <Scale />
+          <span>Harga</span>
+        </button> : <button type="button" className="bottom-sell" onClick={() => setModal({ type: "create" })}>
           <Plus />
           <span>Jual</span>
-        </button>
+        </button>}
         <button type="button" onClick={() => setModal({ type: "orders" })}>
           <ShoppingCart />
           <span>Pesanan</span>
@@ -935,17 +1128,22 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
       ) : null}
       {modal?.type === "lot" ? (
         <Modal title="Detail produk" onClose={() => setModal(null)}>
-          <LotDetail lot={modal.lot} qrUrl={qrUrl} busy={busy} onPreorder={(quantity) => submitPreorder(modal.lot, quantity)} />
+          <LotDetail lot={modal.lot} qrUrl={qrUrl} busy={busy} canPreorder={isBuyer} onPreorder={(quantity) => submitPreorder(modal.lot, quantity)} onReport={() => setModal({ type: "report", lot: modal.lot })} />
         </Modal>
       ) : null}
       {modal?.type === "profile" ? (
-        <Modal title="Profil penjual" onClose={() => setModal(null)}>
+        <Modal title={isBuyer ? "Profil pembeli" : "Profil penjual"} onClose={() => setModal(null)}>
           <ProfilePanel user={user} busy={busy} onLogout={doLogout} />
         </Modal>
       ) : null}
       {modal?.type === "orders" ? (
-        <Modal title={`Keranjang & pre-order (${orders.length})`} onClose={() => setModal(null)}>
+        <Modal title={`Pre-order aktif (${orders.length})`} onClose={() => setModal(null)}>
           <OrdersPanel orders={orders} user={user} busy={busy} onStatus={manageOrder} />
+        </Modal>
+      ) : null}
+      {modal?.type === "report" ? (
+        <Modal title="Laporkan masalah" onClose={() => setModal(null)}>
+          <ReportIssueForm lot={modal.lot} busy={busy} onSubmit={submitReport} />
         </Modal>
       ) : null}
     </main>

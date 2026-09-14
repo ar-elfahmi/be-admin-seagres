@@ -1,12 +1,23 @@
--- Seed SeaGres: identik dengan seed() di lib/store.ts
-insert into public.users (id, name, initials, email, role, organization, location, verified, verification_basis, group_number, pw_salt, pw_hash, token)
+-- Seed SeaGres: identik dengan seed() di lib/store.ts (lokal) + pembeli demo dari migration polis_features.
+-- account_type ditambahkan: pastikan untuk run migration 20260915000000_polis_features.sql dulu.
+insert into public.users (id, name, initials, email, role, organization, location, verified, verification_basis, group_number, account_type, pw_salt, pw_hash, token)
 values (
   'USR-DEMO', 'Pak Rahmat', 'PR', 'rahmat@seagres.id',
   'Nelayan & operator kelompok', 'KUB Mina Jaya', 'Ujungpangkah',
-  true, 'Rekomendasi penyuluh perikanan', 'KUB-GRS-019',
+  true, 'Rekomendasi penyuluh perikanan', 'KUB-GRS-019', 'seller',
   '806e0b2012aa9982137612331112907b',
   'acb1fe52b4b52e887dfdfe021ac16fa6de0b571852b13def301906636521e612078a0fa26c70e7b3feb56e26af5caf0ff556c22531da1120d922618e8f595db3',
   '6ad67617c78275578e5ec8f2ef0499fc'
+) on conflict (id) do nothing;
+
+insert into public.users (id, name, initials, email, role, organization, location, verified, verification_basis, group_number, account_type, pw_salt, pw_hash, token)
+values (
+  'USR-DEMO-BUYER', 'Resto Pesisir Gresik', 'RP', 'resto@seagres.id',
+  'Pembeli lokal', 'Resto Pesisir Gresik', 'Gresik Kota',
+  true, 'Profil usaha lokal', 'Pembeli-GRS-004', 'buyer',
+  'GRESIK-BUYER-DEMO-SALT-2026',
+  '58a186356f5523c5aa4308872ac04fb992921e80832ef6882e2f8aafadacf34d5f0045ce81925dd3d9d481fbaa688f1ab0cdd85e4347198567ce6f761925e5ba',
+  'demo-buyer-session-token'
 ) on conflict (id) do nothing;
 
 insert into public.prices (name, price, source, image) values
@@ -27,7 +38,8 @@ insert into public.lots (id, name, type, price, coret, weight, seller, location,
   ('SGR-100926-003', 'Kerang Dara', 'Kerang', 24000, 27000, 15, 'Kelompok Tirta Jaya', 'Manyar', '10 Sep, 16:00', '2026-09-10T16:00:00Z', '±30 biji/kg', '/products/kerang-hijau.png', 4.6, 77, null)
 on conflict (id) do nothing;
 
+-- Order demo: Resto Pesisir memesan dari USR-DEMO-BUYER (id di-seed di migration polis_features).
 insert into public.orders (id, lot_id, buyer_user_id, buyer, quantity, status, created_at) values
-  ('PO-130926-01', 'SGR-130926-001', 'USR-DEMO', 'Warung Apung Rahma', 10, 'Baru', '2026-09-13T07:40:00Z'),
-  ('PO-130926-02', 'SGR-120926-014', 'USR-DEMO', 'Resto Pesisir Gresik', 8, 'Baru', '2026-09-13T08:05:00Z')
+  ('PO-130926-01', 'SGR-130926-001', 'USR-DEMO-BUYER', 'Warung Apung Rahma', 10, 'Baru', '2026-09-13T07:40:00Z'),
+  ('PO-130926-02', 'SGR-120926-014', 'USR-DEMO-BUYER', 'Resto Pesisir Gresik', 8, 'Baru', '2026-09-13T08:05:00Z')
 on conflict (id) do nothing;

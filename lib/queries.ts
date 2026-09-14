@@ -4,14 +4,16 @@ import {
   toOrder,
   toOrderView,
   toPrice,
+  toReport,
   toUser,
   type LotRow,
   type OrderRow,
   type OrderViewRow,
   type PriceRow,
+  type ReportRow,
   type UserRow,
 } from "./rows";
-import type { Lot, Order, OrderView, Price, User } from "./types";
+import type { IssueReport, Lot, Order, OrderView, Price, User } from "./types";
 
 /** Seluruh lot, terbaru dulu (urutan yang diharapkan katalog). */
 export async function listLots(): Promise<Lot[]> {
@@ -66,6 +68,7 @@ export async function insertUser(user: User): Promise<void> {
     name: user.name,
     initials: user.initials,
     email: user.email,
+    account_type: user.accountType,
     role: user.role,
     organization: user.organization,
     location: user.location,
@@ -101,6 +104,7 @@ export async function insertLot(lot: Lot): Promise<void> {
     rating: lot.rating,
     sold: lot.sold,
     promo: lot.promo,
+    quality: lot.quality ?? null,
   });
   if (error) throw error;
 }
@@ -158,4 +162,29 @@ export async function applyAcceptEffects(order: Order): Promise<void> {
     p_order_id: order.id,
   });
   if (error) throw error;
+}
+
+/** Laporan masalah. */
+export async function insertReport(report: IssueReport): Promise<void> {
+  const { error } = await supabase().from("reports").insert({
+    id: report.id,
+    reporter_user_id: report.reporterUserId,
+    reporter: report.reporter,
+    lot_id: report.lotId,
+    category: report.category,
+    description: report.description,
+    status: report.status,
+    created_at: report.createdAt,
+  });
+  if (error) throw error;
+}
+
+export async function listReports(limit = 50): Promise<IssueReport[]> {
+  const { data, error } = await supabase()
+    .from("reports")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data as ReportRow[]).map(toReport);
 }

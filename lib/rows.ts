@@ -1,6 +1,9 @@
 import type {
+  AccountType,
   Database,
+  IssueReport,
   Lot,
+  LotQuality,
   Order,
   OrderView,
   Price,
@@ -29,6 +32,7 @@ export type LotRow = {
   rating: string | number;
   sold: string | number;
   promo: string | null;
+  quality: LotQuality | null;
 };
 
 export type OrderRow = {
@@ -48,6 +52,7 @@ export type UserRow = {
   name: string;
   initials: string;
   email: string;
+  account_type: AccountType | null;
   role: string;
   organization: string;
   location: string;
@@ -59,12 +64,23 @@ export type UserRow = {
   token: string | null;
 };
 
+export type ReportRow = {
+  id: string;
+  reporter_user_id: string;
+  reporter: string;
+  lot_id: string | null;
+  category: string;
+  description: string;
+  status: IssueReport["status"];
+  created_at: string;
+};
+
 export type PriceRow = { name: string; price: string | number; source: string; image: string };
 
 const num = (value: string | number): number => Number(value);
 
 export function toLot(row: LotRow): Lot {
-  return {
+  const base: Lot = {
     id: row.id,
     name: row.name,
     type: row.type,
@@ -81,6 +97,10 @@ export function toLot(row: LotRow): Lot {
     sold: num(row.sold),
     promo: row.promo,
   };
+  if (row.quality) {
+    base.quality = row.quality;
+  }
+  return base;
 }
 
 export function toOrder(row: OrderRow): Order {
@@ -105,6 +125,7 @@ export function toUser(row: UserRow): User {
     name: row.name,
     initials: row.initials,
     email: row.email,
+    accountType: row.account_type ?? "seller",
     role: row.role,
     organization: row.organization,
     location: row.location,
@@ -114,6 +135,19 @@ export function toUser(row: UserRow): User {
     pwSalt: row.pw_salt,
     pwHash: row.pw_hash,
     token: row.token ?? undefined,
+  };
+}
+
+export function toReport(row: ReportRow): IssueReport {
+  return {
+    id: row.id,
+    reporterUserId: row.reporter_user_id,
+    reporter: row.reporter,
+    lotId: row.lot_id,
+    category: row.category,
+    description: row.description,
+    status: row.status,
+    createdAt: row.created_at,
   };
 }
 
