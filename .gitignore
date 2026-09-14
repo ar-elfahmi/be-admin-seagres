@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+tmp
+data
+public/uploads
+.env*
+!.env.example
+npm-debug.log*
+*.tsbuildinfo
+next-env.d.ts
