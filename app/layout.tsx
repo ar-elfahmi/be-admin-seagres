@@ -12,6 +12,8 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "SeaGres — Hasil Laut Gresik",
   description: "Catat hasil, bagikan lot, dan temukan pembeli lokal dari satu tempat.",
+  applicationName: "SeaGres",
+  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({

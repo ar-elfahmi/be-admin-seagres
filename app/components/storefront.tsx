@@ -29,13 +29,14 @@ import {
   Store,
   Truck,
   UserRound,
-  Waves,
+
   X,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createLot, logout, preorder, reportIssue, setOrderStatus } from "../actions";
 import type { Lot, OrderView, Price, PublicUser } from "../../lib/types";
+import SeagresLogo from "./seagres-logo";
 
 interface SlideItem {
   id: string;
@@ -568,8 +569,8 @@ function TopHeader({
       <div className="main-header">
         <div className="main-header-inner">
           <a className="brand" href="#top" aria-label="SeaGres, kembali ke atas">
-            <span className="brand-mark"><Waves /></span>
-            <strong>sea<strong className="brand-green">gres</strong></strong>
+            <SeagresLogo size={32} />
+
           </a>
           <label className="search-field global-search">
             <Search aria-hidden="true" />
@@ -1085,7 +1086,7 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
 
         <footer className="market-footer">
           <div>
-            <strong>sea<strong className="brand-green">gres</strong></strong>
+            <SeagresLogo size={36} />
             <p>Pasar hasil pesisir Gresik — dari nelayan langsung ke pembeli.</p>
           </div>
           <div>

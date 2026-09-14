@@ -2311,6 +2311,7 @@ a {
 .auth-brand-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11, 42, 83, 0.12) 0%, rgba(11, 42, 83, 0.55) 55%, rgba(11, 42, 83, 0.92) 100%); }
 .auth-brand-side::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, transparent 20%, rgba(147, 197, 253, 0.16) 46%, transparent 72%); transform: translateX(-120%); animation: authLightSweep 9s ease-in-out infinite; }
 .auth-brand-content { position: absolute; z-index: 2; inset: auto 0 0 0; padding: 44px; color: #ffffff; display: grid; gap: 18px; }
+.auth-brand-mark svg { filter: drop-shadow(0 6px 18px rgba(11, 42, 83, 0.35)); }
 .auth-brand-content h2 { margin: 0; font-size: clamp(24px, 2.6vw, 34px); line-height: 1.2; letter-spacing: -0.7px; font-weight: 800; max-width: 460px; }
 .auth-points { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .auth-points li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: rgba(255, 255, 255, 0.92); }

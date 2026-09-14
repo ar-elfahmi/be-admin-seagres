@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BadgeCheck, MapPin, QrCode, ShieldCheck, Waves } from "lucide-react";
+import { BadgeCheck, MapPin, QrCode, ShieldCheck } from "lucide-react";
 import { getLot } from "../../../lib/queries";
 import { currentUser } from "../../../lib/session";
 import LotPreorder from "../../components/lot-preorder";
+import SeagresLogo from "../../components/seagres-logo";
 
 const money = new Intl.NumberFormat("id-ID");
 
@@ -46,8 +47,7 @@ export default async function LotPage({ params }: PageProps) {
     <main className="lot-page">
       <header className="lot-topbar">
         <Link href="/" className="brand">
-          <span className="brand-mark"><Waves /></span>
-          <strong>sea<strong className="brand-green">gres</strong></strong>
+          <SeagresLogo size={32} />
         </Link>
         <span className="lot-topbar-note">
           <QrCode aria-hidden="true" /> Kartu lot & penelusuran

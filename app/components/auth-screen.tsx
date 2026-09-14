@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowRight, Eye, EyeOff, QrCode, ShieldCheck, ShoppingCart, Waves } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, QrCode, ShieldCheck, ShoppingCart } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { login, register } from "../actions";
 import type { AccountType } from "../../lib/types";
+import SeagresLogo from "./seagres-logo";
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -77,6 +78,9 @@ export default function AuthScreen() {
         <Image src="/brand/seagres-hero.png" alt="" fill sizes="50vw" className="auth-photo" unoptimized priority />
         <div className="auth-brand-overlay" />
         <div className="auth-brand-content">
+          <div className="auth-brand-mark">
+            <SeagresLogo size={64} showText={false} />
+          </div>
           <h2>Pasar hasil pesisir Gresik, dimulai dari sini.</h2>
           <ul className="auth-points">
             <li><ShieldCheck aria-hidden="true" /> Penjual diverifikasi penyuluh perikanan</li>
@@ -88,8 +92,8 @@ export default function AuthScreen() {
 
       <section className="auth-form-side">
         <span className="auth-mobile-brand">
-          <span className="brand-mark"><Waves /></span>
-          sea<strong className="brand-green">gres</strong>
+          <SeagresLogo size={28} showText={false} />
+          <strong>sea<strong className="brand-green">gres</strong></strong>
         </span>
 
         <div className="auth-card">
