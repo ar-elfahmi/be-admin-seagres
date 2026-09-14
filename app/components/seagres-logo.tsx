@@ -10,7 +10,7 @@ interface SeagresLogoProps {
  * Logo SeaGres dimuat dari /logo.png (sumber daya statis publik).
  * Tampilkan wordmark "SeaGres" di samping mark sesuai kebutuhan.
  */
-export default function SeagresLogo({ size = 36, showText = true, className }: SeagresLogoProps) {
+export default function SeagresLogo({ size = 36, showText = false, className }: SeagresLogoProps) {
   const ratio = showText ? 2.6 : 1;
   const height = size;
   const width = size * ratio;

@@ -93,7 +93,7 @@ export default function AuthScreen() {
       <section className="auth-form-side">
         <span className="auth-mobile-brand">
           <SeagresLogo size={28} showText={false} />
-          <strong>sea<strong className="brand-green">gres</strong></strong>
+
         </span>
 
         <div className="auth-card">
