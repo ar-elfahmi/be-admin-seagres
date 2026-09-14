@@ -457,7 +457,17 @@ function OrdersPanel({
   onStatus: (orderId: string, status: string) => void;
   busy: boolean;
 }) {
-  const active = orders.filter((order) => order.status !== "Ditolak");
+  const isSeller = user.accountType === "seller";
+  // Filter pesanan sesuai akun: penjual hanya melihat pesanan untuk
+  // kelompoknya; pembeli hanya melihat pesanannya sendiri. Pencocokan
+  // nama kelompok tahan spasi/kapital.
+  const myOrg = (user.organization ?? "").trim().toLocaleLowerCase("id-ID");
+  const visibleOrders = orders.filter((order) =>
+    isSeller
+      ? (order.seller ?? "").trim().toLocaleLowerCase("id-ID") === myOrg
+      : order.buyerUserId === user.id,
+  );
+  const active = visibleOrders.filter((order) => order.status !== "Ditolak");
   const totals = active.reduce<Record<string, number>>((result, order) => {
     result[order.product] = (result[order.product] || 0) + order.quantity;
     return result;
@@ -479,8 +489,7 @@ function OrdersPanel({
         )}
       </div>
       <div className="order-list">
-        {orders.length ? orders.map((order) => {
-          const mine = order.seller === user.organization;
+        {visibleOrders.length ? visibleOrders.map((order) => {
           const pickup = order.status === "Diterima"
             ? "Siap diambil · TPI Gresik, 14.00 WIB"
             : order.status === "Ditolak"
@@ -500,7 +509,7 @@ function OrdersPanel({
                 <span className="order-seller">Lot dari {order.seller}</span>
                 <span className="delivery-note"><Truck aria-hidden="true" /> {pickup}</span>
               </div>
-              {mine && order.status === "Baru" ? (
+              {isSeller && order.status === "Baru" ? (
                 <div className="order-actions">
                   <button className="accept" type="button" disabled={busy} onClick={() => onStatus(order.id, "Diterima")}>Terima pesanan</button>
                   <button className="reject" type="button" disabled={busy} onClick={() => onStatus(order.id, "Ditolak")}>Tolak</button>
@@ -520,6 +529,7 @@ function TopHeader({
   user,
   query,
   setQuery,
+  myOrderCount,
   orders,
   onCatalog,
   onCreate,
@@ -532,6 +542,7 @@ function TopHeader({
   user: PublicUser;
   query: string;
   setQuery: (q: string) => void;
+  myOrderCount: number;
   orders: OrderView[];
   onCatalog: () => void;
   onCreate: () => void;
@@ -568,8 +579,8 @@ function TopHeader({
           </label>
           <div className="header-actions">
             <button className="header-icon" type="button" onClick={onOrders} aria-label="Keranjang">
-              <ShoppingCart />
-              {orders.length > 0 ? <i>{orders.length}</i> : null}
+              {myOrderCount > 0 ? <i>{myOrderCount}</i> : null}
+
             </button>
             <button className="header-icon" type="button" onClick={onReport} aria-label="Laporkan masalah">
               <Bell />
@@ -705,10 +716,16 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
   );
   let displayLots = filteredLots;
   if (sort === "murah") displayLots = [...filteredLots].sort((a, b) => a.price - b.price);
+
   if (sort === "laris") displayLots = [...filteredLots].sort((a, b) => (b.sold ?? 0) - (a.sold ?? 0));
   const pagedLots = displayLots.slice(0, visibleLots);
   const totalWeight = lots.reduce((sum, lot) => sum + lot.weight, 0);
   const activeGroups = new Set(lots.filter((lot) => lot.time.startsWith("Hari ini")).map((lot) => lot.seller)).size;
+  // Pesanan yang relevan dengan akun saat ini (counter & judul modal).
+  const myOrgKey = (user.organization ?? "").trim().toLocaleLowerCase("id-ID");
+  const filteredOrderCount = isBuyer
+    ? orders.filter((order) => order.buyerUserId === user.id).length
+    : orders.filter((order) => (order.seller ?? "").trim().toLocaleLowerCase("id-ID") === myOrgKey).length;
 
   function flash(message: string, isError = false) {
     setNotice({ message, isError });
@@ -887,11 +904,12 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
         query={query}
         setQuery={setQuery}
         orders={orders}
-        onCatalog={scrollToCatalog}
+        myOrderCount={filteredOrderCount}
         onCreate={() => setModal({ type: "create" })}
         onOrders={() => setModal({ type: "orders" })}
         onProfile={() => setModal({ type: "profile" })}
         onReport={() => setModal({ type: "report" })}
+        onCatalog={scrollToCatalog}
         onJump={goToId}
         accountType={user.accountType}
       />
@@ -903,7 +921,7 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
             <div className="side-card summary-card compact">
               <div className="summary-stats">
                 <span><Scale aria-hidden="true" /><strong>{totalWeight}</strong>kg tersedia</span>
-                <span><ShoppingCart aria-hidden="true" /><strong>{orders.length}</strong>pesanan</span>
+                <span><ShoppingCart aria-hidden="true" /><strong>{filteredOrderCount}</strong>pesanan</span>
                 <span><Truck aria-hidden="true" /><strong>{activeGroups}</strong>kelompok</span>
               </div>
               <button type="button" onClick={() => setModal({ type: "orders" })}>{isBuyer ? "Lihat pre-order saya" : "Lihat pesanan masuk"} <ChevronRight aria-hidden="true" /></button>
@@ -1108,7 +1126,7 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
         <button type="button" onClick={() => setModal({ type: "orders" })}>
           <ShoppingCart />
           <span>Pesanan</span>
-          {orders.length > 0 ? <i /> : null}
+          {filteredOrderCount > 0 ? <i /> : null}
         </button>
         <button type="button" onClick={() => setModal({ type: "profile" })}>
           <UserRound />
@@ -1137,7 +1155,7 @@ export default function Storefront({ user, initialLots, initialOrders, prices }:
         </Modal>
       ) : null}
       {modal?.type === "orders" ? (
-        <Modal title={`Pre-order aktif (${orders.length})`} onClose={() => setModal(null)}>
+        <Modal title={`Pre-order ${user.accountType === "seller" ? "masuk" : "saya"} (${filteredOrderCount})`} onClose={() => setModal(null)}>
           <OrdersPanel orders={orders} user={user} busy={busy} onStatus={manageOrder} />
         </Modal>
       ) : null}
