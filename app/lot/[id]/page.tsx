@@ -92,7 +92,7 @@ export default async function LotPage({ params }: PageProps) {
             ))}
           </ol>
 
-          <LotPreorder lotId={lot.id} weight={lot.weight} loggedIn={!!user} />
+          <LotPreorder lotId={lot.id} weight={lot.weight} loggedIn={!!user} accountType={user?.accountType ?? null} />
         </div>
       </article>
 

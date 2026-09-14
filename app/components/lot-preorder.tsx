@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { CalendarDays, ShoppingCart } from "lucide-react";
+import { CalendarDays, ShieldCheck, ShoppingCart } from "lucide-react";
 import { preorder } from "../actions";
 
 interface LotPreorderProps {
   lotId: string;
   weight: number;
   loggedIn: boolean;
+  accountType: "seller" | "buyer" | null;
 }
 
-export default function LotPreorder({ lotId, weight, loggedIn }: LotPreorderProps) {
+export default function LotPreorder({ lotId, weight, loggedIn, accountType }: LotPreorderProps) {
   const [quantity, setQuantity] = useState<number | string>(Math.min(5, weight));
   const [done, setDone] = useState("");
   const [error, setError] = useState("");
@@ -25,6 +26,16 @@ export default function LotPreorder({ lotId, weight, loggedIn }: LotPreorderProp
     return (
       <p className="lot-note">
         <Link href="/" className="lot-login-btn"><ShoppingCart /> Masuk untuk mengajukan pre-order lot ini</Link>
+      </p>
+    );
+  }
+
+  // Penjual hanya boleh mencatat lot; tombol pre-order hanya untuk pembeli agar
+  // tidak ada pengiriman yang pasti ditolak server.
+  if (accountType === "seller") {
+    return (
+      <p className="lot-note">
+        <ShieldCheck aria-hidden="true" /> Akun penjual dapat memantau lot ini. Pre-order dilakukan dari akun pembeli.
       </p>
     );
   }
