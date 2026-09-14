@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgeCheck, MapPin, QrCode, ShieldCheck, Waves } from "lucide-react";
-import { getDb } from "../../../lib/store";
+import { getLot } from "../../../lib/queries";
 import { currentUser } from "../../../lib/session";
 import LotPreorder from "../../components/lot-preorder";
 
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const lot = getDb().lots.find((item) => item.id === id);
+  const lot = await getLot(id);
   return {
     title: lot ? `${lot.name} — Kartu Lot ${lot.id} · SeaGres` : "Lot tidak ditemukan · SeaGres",
     description: lot ? `Penelusuran hasil pesisir: ${lot.name} dari ${lot.seller}, ${lot.location}.` : undefined,
@@ -26,8 +26,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function LotPage({ params }: PageProps) {
   const { id } = await params;
-  const db = getDb();
-  const lot = db.lots.find((item) => item.id === id);
+  const lot = await getLot(id);
   if (!lot) notFound();
 
   let user = null;

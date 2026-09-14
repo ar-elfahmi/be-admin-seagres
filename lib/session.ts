@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
-import { getDb, saveDb } from "./store";
+import { findUserById, setUserToken } from "./queries";
+import { safeEqual } from "./crypto";
 import type { User } from "./types";
 
 const COOKIE = "sgres_session";
@@ -10,21 +11,22 @@ export async function currentUser(): Promise<User | null> {
   const raw = store.get(COOKIE)?.value;
   if (!raw) return null;
   const [uid, secret] = String(raw).split(".");
-  const user = getDb().users.find((item) => item.id === uid);
-  if (!user || !secret || user.token !== secret) return null;
+  if (!uid || !secret) return null;
+  const user = await findUserById(uid);
+  if (!user || !user.token || !safeEqual(user.token, secret)) return null;
   return user;
 }
 
 export async function startSession(user: User): Promise<void> {
-  const db = getDb();
-  const target = db.users.find((item) => item.id === user.id);
+  const target = await findUserById(user.id);
   if (!target) return;
-  if (!target.token) {
-    target.token = crypto.randomBytes(16).toString("hex");
-    saveDb(db);
+  let token = target.token;
+  if (!token) {
+    token = crypto.randomBytes(16).toString("hex");
+    await setUserToken(target.id, token);
   }
   const store = await cookies();
-  store.set(COOKIE, `${user.id}.${target.token}`, {
+  store.set(COOKIE, `${target.id}.${token}`, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",

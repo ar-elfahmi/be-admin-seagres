@@ -1,10 +1,22 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import fs from "node:fs/promises";
-import path from "node:path";
 import crypto from "node:crypto";
-import { getDb, saveDb, hashPassword, checkPassword, newId, initialsOf, ordersView } from "../lib/store";
+import { revalidatePath } from "next/cache";
+import {
+  applyAcceptEffects,
+  findUserByEmail,
+  getLot,
+  getOrder,
+  insertLot,
+  insertOrder,
+  insertUser,
+  listLots,
+  listOrderViews,
+  reserveWeight,
+  updateOrderStatus,
+} from "../lib/queries";
+import { supabase } from "../lib/supabase";
+import { checkPassword, hashPassword, initialsOf } from "../lib/crypto";
 import { currentUser, startSession, endSession } from "../lib/session";
 import type { Lot, Order, OrderView, RegisterInput, User } from "../lib/types";
 
@@ -15,9 +27,12 @@ const DEFAULT_IMAGES: Record<string, string> = {
   Olahan: "/products/bandeng-tanpa-duri.png",
 };
 
+function newId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36).toUpperCase()}${crypto.randomBytes(2).toString("hex").toUpperCase()}`;
+}
+
 export async function login(email: unknown, password: unknown): Promise<{ error?: string; ok?: boolean }> {
-  const db = getDb();
-  const user = db.users.find((item) => item.email === String(email).trim().toLowerCase());
+  const user = await findUserByEmail(String(email).trim().toLowerCase());
   if (!user || !checkPassword(user, String(password))) {
     return { error: "Email atau kata sandi salah." };
   }
@@ -32,8 +47,7 @@ export async function register(input: RegisterInput): Promise<{ error?: string; 
   if (!name || !email || password.length < 6) {
     return { error: "Lengkapi nama, email, dan kata sandi minimal 6 karakter." };
   }
-  const db = getDb();
-  if (db.users.some((item) => item.email === email)) {
+  if (await findUserByEmail(email)) {
     return { error: "Email sudah terdaftar. Silakan masuk." };
   }
   const { salt, hash } = hashPassword(password);
@@ -52,8 +66,7 @@ export async function register(input: RegisterInput): Promise<{ error?: string; 
     pwHash: hash,
     token: crypto.randomBytes(16).toString("hex"),
   };
-  db.users.push(user);
-  saveDb(db);
+  await insertUser(user);
   await startSession(user);
   return { ok: true };
 }
@@ -97,11 +110,14 @@ export async function createLot(formData: FormData): Promise<{ error?: string; o
     if (!ext) return { error: "Format foto harus PNG, JPG, WebP, atau GIF." };
     if (photo.size > 4 * 1024 * 1024) return { error: "Ukuran foto maksimal 4 MB." };
     const buffer = Buffer.from(await (photo as Blob).arrayBuffer());
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await fs.mkdir(uploadDir, { recursive: true });
-    const filename = `${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}.${ext}`;
-    await fs.writeFile(path.join(uploadDir, filename), buffer);
-    image = `/uploads/${filename}`;
+    const objectPath = `lots/${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}.${ext}`;
+    const { error: uploadError } = await supabase()
+      .storage
+      .from("lot-photos")
+      .upload(objectPath, buffer, { contentType: fileType });
+    if (uploadError) return { error: "Gagal mengunggah foto lot." };
+    const { data } = supabase().storage.from("lot-photos").getPublicUrl(objectPath);
+    image = data.publicUrl;
   }
 
   const now = new Date();
@@ -125,12 +141,10 @@ export async function createLot(formData: FormData): Promise<{ error?: string; o
     promo: "Baru dicatat",
   };
 
-  const db = getDb();
-  db.lots.unshift(lot);
-  saveDb(db);
+  await insertLot(lot);
   revalidatePath("/");
   revalidatePath(`/lot/${lot.id}`);
-  return { ok: true, lot, lots: db.lots };
+  return { ok: true, lot, lots: await listLots() };
 }
 
 export async function preorder(
@@ -139,11 +153,13 @@ export async function preorder(
 ): Promise<{ error?: string; ok?: boolean; order?: Order; orders?: OrderView[] }> {
   const user = await currentUser();
   if (!user) return { error: "Masuk dulu untuk mengajukan pre-order." };
-  const db = getDb();
-  const lot = db.lots.find((item) => item.id === lotId);
+  const lot = await getLot(lotId);
   if (!lot) return { error: "Lot tidak ditemukan." };
   if (lot.weight <= 0) return { error: "Stok lot ini sudah habis." };
   const amount = Math.max(1, Math.min(lot.weight, Math.round(Number(quantity) || 1)));
+  // Reservasi atomik dulu: row lock mencegah oversell; gagal berarti stok kurang.
+  const reserved = await reserveWeight(lot.id, amount);
+  if (!reserved) return { error: "Stok lot ini sudah habis." };
   const order: Order = {
     id: newId("PO"),
     lotId: lot.id,
@@ -153,10 +169,9 @@ export async function preorder(
     status: "Baru",
     createdAt: new Date().toISOString(),
   };
-  db.orders.unshift(order);
-  saveDb(db);
+  await insertOrder(order);
   revalidatePath("/");
-  return { ok: true, order, orders: ordersView(db) };
+  return { ok: true, order, orders: await listOrderViews() };
 }
 
 export async function setOrderStatus(
@@ -166,20 +181,18 @@ export async function setOrderStatus(
   const user = await currentUser();
   if (!user) return { error: "Masuk dulu untuk mengelola pesanan." };
   if (!["Diterima", "Ditolak", "Baru"].includes(status)) return { error: "Status tidak valid." };
-  const db = getDb();
-  const order = db.orders.find((item) => item.id === orderId);
+  const order = await getOrder(orderId);
   if (!order) return { error: "Pesanan tidak ditemukan." };
-  const lot = db.lots.find((item) => item.id === order.lotId);
+  const lot = await getLot(order.lotId);
   if (!lot || lot.seller !== user.organization) {
     return { error: "Hanya kelompok penjual lot ini yang bisa mengubah status." };
   }
-  if (status === "Diterima" && order.status !== "Diterima") {
-    lot.weight = Math.max(0, lot.weight - order.quantity);
-    lot.sold += order.quantity;
+  const updated = await updateOrderStatus(orderId, status);
+  // Efek penerimaan hanya sekali: guard transisi + hanya jika update sukses.
+  if (updated && status === "Diterima" && order.status !== "Diterima") {
+    await applyAcceptEffects(order);
   }
-  order.status = status;
-  saveDb(db);
   revalidatePath("/");
   revalidatePath(`/lot/${lot.id}`);
-  return { ok: true, orders: ordersView(db), lots: db.lots };
+  return { ok: true, orders: await listOrderViews(), lots: await listLots() };
 }
