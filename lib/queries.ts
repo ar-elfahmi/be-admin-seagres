@@ -1,19 +1,41 @@
 import { supabase } from "./supabase";
 import {
+  toDocument,
+  toGeoPoint,
+  toHistory,
   toLot,
   toOrder,
   toOrderView,
   toPrice,
+  toProduct,
   toReport,
+  toSubProduct,
   toUser,
+  type DocumentRow,
+  type GeoPointRow,
+  type HistoryRow,
   type LotRow,
   type OrderRow,
   type OrderViewRow,
   type PriceRow,
+  type ProductRow,
   type ReportRow,
+  type SubProductRow,
   type UserRow,
 } from "./rows";
-import type { IssueReport, Lot, Order, OrderView, Price, User } from "./types";
+import type {
+  IssueReport,
+  Lot,
+  Order,
+  OrderView,
+  Price,
+  Product,
+  ProductDetail,
+  ProductHistory,
+  SubProduct,
+  User,
+} from "./types";
+
 
 /** Seluruh lot, terbaru dulu (urutan yang diharapkan katalog). */
 export async function listLots(): Promise<Lot[]> {
@@ -187,4 +209,250 @@ export async function listReports(limit = 50): Promise<IssueReport[]> {
     .limit(limit);
   if (error) throw error;
   return (data as ReportRow[]).map(toReport);
+}
+
+/* ---------- Produk agregasi pengepul ---------- */
+
+export async function listProducts(): Promise<Product[]> {
+  const { data, error } = await supabase()
+    .from("products")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as ProductRow[]).map(toProduct);
+}
+
+export async function getProduct(id: string): Promise<Product | null> {
+  const { data, error } = await supabase()
+    .from("products")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toProduct(data as ProductRow) : null;
+}
+
+export async function listSubProducts(productId: string): Promise<SubProduct[]> {
+  const { data, error } = await supabase()
+    .from("sub_products")
+    .select("*")
+    .eq("product_id", productId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data as SubProductRow[]).map(toSubProduct);
+}
+
+export async function listHistory(productId: string): Promise<ProductHistory[]> {
+  const { data, error } = await supabase()
+    .from("product_history")
+    .select("*")
+    .eq("product_id", productId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  const events = (data as HistoryRow[]).map(toHistory);
+  if (!events.length) return events;
+  const ids = events.map((event) => event.id);
+  const [pointsRes, docsRes] = await Promise.all([
+    supabase().from("history_geo_points").select("*").in("history_id", ids),
+    supabase().from("history_documents").select("*").in("history_id", ids),
+  ]);
+  if (pointsRes.error) throw pointsRes.error;
+  if (docsRes.error) throw docsRes.error;
+  const pointsByHistory = new Map<string, ProductHistory["points"]>();
+  for (const row of (pointsRes.data ?? []) as GeoPointRow[]) {
+    const point = toGeoPoint(row);
+    const list = pointsByHistory.get(point.historyId) ?? [];
+    list.push(point);
+    pointsByHistory.set(point.historyId, list);
+  }
+  const docsByHistory = new Map<string, ProductHistory["documents"]>();
+  for (const row of (docsRes.data ?? []) as DocumentRow[]) {
+    const doc = toDocument(row);
+    const list = docsByHistory.get(doc.historyId) ?? [];
+    list.push(doc);
+    docsByHistory.set(doc.historyId, list);
+  }
+  return events.map((event) => ({
+    ...event,
+    points: pointsByHistory.get(event.id) ?? [],
+    documents: docsByHistory.get(event.id) ?? [],
+  }));
+}
+
+/** Total qty tersedia = jumlah seluruh sub-product pada produk. */
+export async function aggregateQuantity(productId: string): Promise<number> {
+  const subs = await listSubProducts(productId);
+  return subs.reduce((sum, sub) => sum + sub.quantity, 0);
+}
+
+/** Catalog publik: agregat semua produk + sub-products + history ringkas. */
+export async function listCatalogProducts(): Promise<ProductDetail[]> {
+  const products = await listProducts();
+  if (!products.length) return [];
+  return Promise.all(
+    products.map(async (product) => {
+      const [subProducts, history] = await Promise.all([
+        listSubProducts(product.id),
+        listHistory(product.id),
+      ]);
+      return {
+        ...product,
+        subProducts,
+        history,
+        available: subProducts.reduce((sum, sub) => sum + sub.quantity, 0),
+      };
+    })
+  );
+}
+export async function getProductDetail(id: string): Promise<ProductDetail | null> {
+  const product = await getProduct(id);
+  if (!product) return null;
+  const [subProducts, history] = await Promise.all([
+    listSubProducts(id),
+    listHistory(id),
+  ]);
+  return {
+    ...product,
+    subProducts,
+    history,
+    available: subProducts.reduce((sum, sub) => sum + sub.quantity, 0),
+  };
+}
+
+export async function listProductDetailsByPengepul(pengepulId: string): Promise<ProductDetail[]> {
+  const { data, error } = await supabase()
+    .from("products")
+    .select("*")
+    .eq("pengepul_id", pengepulId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  const products = (data as ProductRow[]).map(toProduct);
+  if (!products.length) return [];
+  const subs = await Promise.all(products.map((product) => listSubProducts(product.id)));
+  const histories = await Promise.all(products.map((product) => listHistory(product.id)));
+  return products.map((product, index) => ({
+    ...product,
+    subProducts: subs[index],
+    history: histories[index],
+    available: subs[index].reduce((sum, sub) => sum + sub.quantity, 0),
+  }));
+}
+
+export async function insertProduct(product: Product): Promise<void> {
+  const { error } = await supabase().from("products").insert({
+    id: product.id,
+    name: product.name,
+    type: product.type,
+    price: product.price,
+    coret: product.coret,
+    size: product.size,
+    image: product.image,
+    promo: product.promo,
+    pengepul_id: product.pengepulId,
+    organization: product.organization,
+    location: product.location,
+    barcode: product.barcode,
+    created_at: product.createdAt,
+  });
+  if (error) throw error;
+}
+
+export async function deleteProduct(id: string): Promise<boolean> {
+  const { data, error } = await supabase().from("products").delete().eq("id", id).select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+export async function insertSubProduct(sub: SubProduct): Promise<void> {
+  const { error } = await supabase().from("sub_products").insert({
+    id: sub.id,
+    product_id: sub.productId,
+    fisherman_name: sub.fishermanName,
+    quantity: sub.quantity,
+    unit: sub.unit,
+    geo_lat: sub.geoLat,
+    geo_lng: sub.geoLng,
+    created_at: sub.createdAt,
+  });
+  if (error) throw error;
+}
+
+/** Update atomik kuantitas sub-product; row lock akan menolak oversell. */
+export async function updateSubProductQuantity(
+  id: string,
+  delta: number
+): Promise<boolean> {
+  if (delta === 0) return true;
+  const { data, error } = await supabase()
+    .from("sub_products")
+    .update({ quantity: Math.max(0, delta) })
+    .eq("id", id)
+    .select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+export async function getSubProduct(id: string): Promise<SubProduct | null> {
+  const { data, error } = await supabase()
+    .from("sub_products")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toSubProduct(data as SubProductRow) : null;
+}
+
+export async function insertHistory(event: ProductHistory): Promise<void> {
+  const { error } = await supabase().from("product_history").insert({
+    id: event.id,
+    product_id: event.productId,
+    sub_product_id: event.subProductId,
+    actor_id: event.actorId,
+    actor: event.actor,
+    kind: event.kind,
+    note: event.note,
+    quantity_delta: event.quantityDelta,
+    created_at: event.createdAt,
+  });
+  if (error) throw error;
+}
+
+export async function insertGeoPoint(point: {
+  id: string;
+  historyId: string;
+  lat: number;
+  lng: number;
+  label: string | null;
+  createdAt: string;
+}): Promise<void> {
+  const { error } = await supabase().from("history_geo_points").insert({
+    id: point.id,
+    history_id: point.historyId,
+    lat: point.lat,
+    lng: point.lng,
+    label: point.label,
+    created_at: point.createdAt,
+  });
+  if (error) throw error;
+}
+
+export async function insertDocument(doc: {
+  id: string;
+  historyId: string;
+  url: string;
+  filename: string;
+  mime: string;
+  kind: ProductHistory["documents"][number]["kind"];
+  createdAt: string;
+}): Promise<void> {
+  const { error } = await supabase().from("history_documents").insert({
+    id: doc.id,
+    history_id: doc.historyId,
+    url: doc.url,
+    filename: doc.filename,
+    mime: doc.mime,
+    kind: doc.kind,
+    created_at: doc.createdAt,
+  });
+  if (error) throw error;
 }

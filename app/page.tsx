@@ -1,4 +1,4 @@
-import { listLots, listOrderViews, listPrices } from "../lib/queries";
+import { listCatalogProducts, listOrderViews, listPrices } from "../lib/queries";
 import { toPublicUser } from "../lib/rows";
 import { currentUser } from "../lib/session";
 import AuthScreen from "./components/auth-screen";
@@ -13,8 +13,8 @@ export default async function HomePage() {
   const pUser = toPublicUser(user);
   if (!pUser) return <AuthScreen />;
 
-  const [initialLots, initialOrders, prices] = await Promise.all([
-    listLots(),
+  const [initialProducts, initialOrders, prices] = await Promise.all([
+    listCatalogProducts(),
     listOrderViews(),
     listPrices(),
   ]);
@@ -22,7 +22,7 @@ export default async function HomePage() {
   return (
     <Storefront
       user={pUser}
-      initialLots={initialLots}
+      initialProducts={initialProducts}
       initialOrders={initialOrders}
       prices={prices}
     />

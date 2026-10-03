@@ -1,4 +1,4 @@
-export type AccountType = "seller" | "buyer";
+export type AccountType = "pengepul" | "customer";
 
 export interface User {
   id: string;
@@ -33,6 +33,10 @@ export interface LotQuality {
   dispatch: string;
 }
 
+/**
+ * Lot legacy dipertahankan untuk back-compat /lot/[id] dan alur pre-order
+ * yang masih hidup. Katalog publik baru memakai Product.
+ */
 export interface Lot {
   id: string;
   name: string;
@@ -76,6 +80,86 @@ export interface IssueReport {
   description: string;
   status: "Baru" | "Ditinjau" | "Selesai";
   createdAt: string;
+}
+
+/**
+ * Produk agregasi pengepul: 1 nama barang dikumpulkan dari banyak nelayan.
+ * Kuantitas tersedia diturunkan dari jumlah sub_products (lihat
+ * lib/queries#aggregateQuantity) — tidak ada kolom weight.
+ */
+export interface Product {
+  id: string;
+  name: string;
+  type: "Bandeng" | "Udang" | "Kerang" | "Olahan";
+  price: number;
+  coret: number | null;
+  size: string;
+  image: string;
+  promo: string | null;
+  pengepulId: string;
+  organization: string;
+  location: string;
+  barcode: string;
+  createdAt: string;
+}
+
+export interface SubProduct {
+  id: string;
+  productId: string;
+  fishermanName: string;
+  quantity: number;
+  unit: string;
+  geoLat: number | null;
+  geoLng: number | null;
+  createdAt: string;
+}
+
+export type HistoryKind = "tambah_produk" | "terima_nelayan" | "jual";
+
+export interface HistoryPoint {
+  id: string;
+  historyId: string;
+  lat: number;
+  lng: number;
+  label: string | null;
+  createdAt: string;
+}
+
+export type DocumentKind = "foto" | "dokumen";
+
+export interface HistoryDocument {
+  id: string;
+  historyId: string;
+  url: string;
+  filename: string;
+  mime: string;
+  kind: DocumentKind;
+  createdAt: string;
+}
+
+export interface ProductHistory {
+  id: string;
+  productId: string;
+  subProductId: string | null;
+  actorId: string;
+  actor: string;
+  kind: HistoryKind;
+  note: string | null;
+  quantityDelta: number;
+  createdAt: string;
+  points: HistoryPoint[];
+  documents: HistoryDocument[];
+}
+
+/**
+ * Detail produk: agregat dengan sub-products dan history (untuk katalog &
+ * dashboard). Available = aggregateQuantity(subProducts) — di sini bukan
+ * field, melainkan accessor di server.
+ */
+export interface ProductDetail extends Product {
+  subProducts: SubProduct[];
+  history: ProductHistory[];
+  available: number;
 }
 
 export interface Database {

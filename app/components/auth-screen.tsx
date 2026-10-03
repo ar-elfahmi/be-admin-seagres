@@ -11,8 +11,8 @@ import SeagresLogo from "./seagres-logo";
 export default function AuthScreen() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [showPass, setShowPass] = useState(false);
-  const [accountType, setAccountType] = useState<AccountType>("seller");
-  const [role, setRole] = useState("Nelayan");
+  const [accountType, setAccountType] = useState<AccountType>("pengepul");
+  const [role, setRole] = useState("Pengepul perikanan");
   const [registerStep, setRegisterStep] = useState<1 | 2>(1);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,7 +47,7 @@ export default function AuthScreen() {
       const res = await register({
         name: String(data.get("fullName") || ""),
         role: String(data.get("role") || ""),
-        accountType: String(data.get("accountType") || "seller") as AccountType,
+        accountType: String(data.get("accountType") || "pengepul") as AccountType,
         organization: String(data.get("organization") || ""),
         location: String(data.get("location") || ""),
         email: String(data.get("email") || ""),
@@ -177,18 +177,18 @@ export default function AuthScreen() {
                   <select name="accountType" value={accountType} onChange={(event) => {
                     const next = event.target.value as AccountType;
                     setAccountType(next);
-                    setRole(next === "buyer" ? "Pembeli lokal" : "Nelayan");
+                    setRole(next === "customer" ? "Pembeli lokal" : "Pengepul perikanan");
                   }}>
-                    <option value="seller">Penjual hasil laut</option>
-                    <option value="buyer">Pembeli lokal</option>
+                    <option value="pengepul">Pengepul hasil laut</option>
+                    <option value="customer">Pembeli lokal</option>
                   </select>
                 </label>
                 <div className="form-grid">
                   <label>
                     Peran utama
                     <select name="role" value={role} onChange={(event) => setRole(event.target.value)}>
-                      {accountType === "buyer" ? <option>Pembeli lokal</option> : <>
-                        <option>Nelayan</option>
+                      {accountType === "customer" ? <option>Pembeli lokal</option> : <>
+                        <option>Pengepul perikanan</option>
                         <option>Pembudidaya</option>
                         <option>Operator kelompok/koperasi</option>
                         <option>Pengolah/UMKM</option>
@@ -201,13 +201,10 @@ export default function AuthScreen() {
                   </label>
                 </div>
                 <label>
-                  {accountType === "buyer" ? "Nama usaha / tempat usaha" : "Kelompok / koperasi / usaha"}
-                  <input name="organization" placeholder={accountType === "buyer" ? "ex: Resto Pesisir Gresik" : "ex: KUB Mina Jaya"} required />
+                  {accountType === "customer" ? "Nama usaha / tempat usaha" : "Kelompok / koperasi / usaha"}
+                  <input name="organization" placeholder={accountType === "customer" ? "ex: Resto Pesisir Gresik" : "ex: KUB Mina Jaya"} required />
                 </label>
-                <p className="auth-note">{accountType === "buyer" ? "Profil pembeli dipakai untuk mengajukan pre-order dan menerima konfirmasi pengambilan." : "Dokumen pendukung (SK kelompok, KTP, atau izin usaha) ditindaklanjuti pendamping setelah pendaftaran."}</p>
-                <label className="consent">
-                  <input type="checkbox" required /> Saya menyetujui verifikasi data usaha dan publikasi lokasi umum saja, tanpa titik kapal.
-                </label>
+                <p className="auth-note">{accountType === "customer" ? "Profil pembeli dipakai untuk mengajukan pre-order dan menerima konfirmasi pengambilan." : "Dokumen pendukung (SK kelompok, KTP, atau izin usaha) ditindaklanjuti pendamping setelah pendaftaran."}</p>
                 <div className="register-actions">
                   <button className="back-button" type="button" onClick={() => setRegisterStep(1)}>Kembali</button>
                   <button className="primary-button form-submit" type="submit" disabled={busy}>
