@@ -7,14 +7,16 @@ import {
   BadgeCheck,
   Check,
   ChevronDown,
-  ChevronRight,
   ClipboardCheck,
   FileText,
   LogOut,
   MapPin,
   Package,
   Plus,
+  Printer,
+  QrCode,
   Scale,
+  Search,
   ShieldCheck,
   ShoppingCart,
   Store,
@@ -25,7 +27,6 @@ import {
 } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import {
-  addProductHistory,
   createProduct,
   deleteProductAction,
   logout,
@@ -39,7 +40,6 @@ import type {
   SubProduct,
 } from "../../lib/types";
 import SeagresLogo from "./seagres-logo";
-import TraceCard from "./trace-card";
 
 interface PengepulDashboardProps {
   user: PublicUser;
@@ -49,7 +49,7 @@ interface PengepulDashboardProps {
 
 const money = new Intl.NumberFormat("id-ID");
 
-const FILTERS = ["Semua", "Bandeng", "Udang", "Kerang", "Olahan"];
+const FILTERS = ["Semua", "Bandeng", "Udang", "Kerang", "Olahan"] as const;
 const HISTORY_KIND_LABELS: Record<HistoryKind, string> = {
   tambah_produk: "Tambah produk",
   terima_nelayan: "Terima dari nelayan",
@@ -312,10 +312,13 @@ function FishermanControl({ productId, sub }: FishermanControlProps) {
   return (
     <div className="fisherman-control">
       <span>
-        <strong>{sub.fishermanName}</strong> · {sub.quantity.toFixed(1)} kg
-        {sub.geoLat !== null && sub.geoLng !== null ? (
-          <small><MapPin /> {sub.geoLat.toFixed(4)}, {sub.geoLng.toFixed(4)}</small>
-        ) : null}
+        <strong>{sub.fishermanName}</strong>
+        <small>
+          {sub.quantity.toFixed(1)} kg
+          {sub.geoLat !== null && sub.geoLng !== null
+            ? ` · ${sub.geoLat.toFixed(4)}, ${sub.geoLng.toFixed(4)}`
+            : ""}
+        </small>
       </span>
       {mode ? (
         <form onSubmit={apply}>
@@ -337,10 +340,10 @@ function FishermanControl({ productId, sub }: FishermanControlProps) {
       ) : (
         <span>
           <button type="button" onClick={() => setMode("terima_nelayan")}>
-            <Plus /> Terima
+            + Terima
           </button>
           <button type="button" onClick={() => setMode("jual")}>
-            <Truck /> Jual
+            − Jual
           </button>
         </span>
       )}
@@ -348,9 +351,15 @@ function FishermanControl({ productId, sub }: FishermanControlProps) {
   );
 }
 
-function ProductRow({ product, onChanged }: { product: ProductDetail; onChanged: () => void }) {
+interface ProductCardProps {
+  product: ProductDetail;
+  onChanged: () => void;
+}
+
+function ProductCard({ product, onChanged }: ProductCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
+  const traceUrl = typeof window === "undefined" ? `/produk/${product.id}` : `${window.location.origin}/produk/${product.id}`;
 
   async function del() {
     if (busy) return;
@@ -365,90 +374,121 @@ function ProductRow({ product, onChanged }: { product: ProductDetail; onChanged:
     }
   }
 
-  const traceUrl = typeof window === "undefined" ? `/produk/${product.id}` : `${window.location.origin}/produk/${product.id}`;
+  function printLabel() {
+    const w = window.open("", "_blank", "width=420,height=560");
+    if (!w) return;
+    w.document.write(`<!doctype html><html><head><title>${product.name} · ${product.barcode}</title>
+<style>body{font-family:system-ui;padding:24px;text-align:center}.qr{width:240px;height:240px;margin:0 auto 12px}.name{font-weight:700;font-size:16px;margin:0 0 4px}.code{font-family:ui-monospace,monospace;font-size:12px;color:#555}</style>
+</head><body><div class="qr" id="qr"></div><p class="name">${product.name}</p><p class="code">${product.barcode}</p><script>
+(async()=>{const QRCode=await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm");const url=${JSON.stringify(traceUrl)};const data=await QRCode.toDataURL(url,{width:480,margin:1,color:{dark:"#1e5aa8",light:"#ffffff"}});document.getElementById("qr").innerHTML='<img src="'+data+'" width="240" height="240">';setTimeout(()=>window.print(),250);})();
+</script></body></html>`);
+    w.document.close();
+  }
 
   return (
-    <article className="product-row">
-      <header>
-        <span className="product-thumb">
-          <Image src={product.image} alt={product.name} fill sizes="80px" unoptimized={!isLocalAsset(product.image)} />
+    <article className="product-card-row">
+      <div className="pcr-top">
+        <span className="pcr-thumb">
+          <Image src={product.image} alt={product.name} fill sizes="64px" unoptimized={!isLocalAsset(product.image)} />
         </span>
-        <div className="product-summary">
+        <div className="pcr-info">
           <strong>{product.name}</strong>
-          <span><BadgeCheck /> {product.type} · {product.size}</span>
-          <span><MapPin /> {product.location}</span>
-          <span>
-            <Scale /> Tersedia {product.available.toFixed(1)} kg ·{" "}
-            Rp{money.format(product.price)}
-            {product.coret ? <s>Rp{money.format(product.coret)}</s> : null} /kg
-          </span>
-          <small className="barcode-chip">{product.barcode}</small>
+          <small>
+            {product.type} · {product.size} · {product.location}
+          </small>
+          <div className="pcr-meta">
+            <span className="stock-chip">
+              <Scale /> {product.available.toFixed(1)} kg
+            </span>
+            <span className="price-chip">Rp{money.format(product.price)}/kg</span>
+            <span className="barcode-chip">{product.barcode}</span>
+          </div>
         </div>
-        <div className="product-actions">
-          <button type="button" onClick={() => setOpen((value) => !value)}>
-            {open ? "Ringkas" : "Kelola"} <ChevronDown />
+        <div className="pcr-actions">
+          <button type="button" onClick={printLabel} className="ghost" aria-label="Cetak label">
+            <Printer /> Cetak
           </button>
-          <button type="button" onClick={del} disabled={busy} className="reject">
+          <button type="button" onClick={del} disabled={busy} className="ghost danger" aria-label="Hapus produk">
             <Trash2 /> Hapus
           </button>
         </div>
-      </header>
-      {open ? (
-        <div className="product-detail">
-          <section className="fishermen-list">
-            <h3>Sub-produk per nelayan</h3>
-            {product.subProducts.length ? (
-              product.subProducts.map((sub) => (
-                <FishermanControl key={sub.id} productId={product.id} sub={sub} />
-              ))
-            ) : (
-              <p className="empty-state inline">Belum ada sub-produk.</p>
-            )}
-          </section>
-          <section className="history-list">
-            <h3>Riwayat event</h3>
-            {product.history.length ? (
-              product.history.map((event) => (
-                <div key={event.id} className="history-row">
-                  <span>
-                    <strong>{HISTORY_KIND_LABELS[event.kind]}</strong>
-                    <small>{new Date(event.createdAt).toLocaleString("id-ID")}</small>
-                  </span>
-                  {event.note ? <p>{event.note}</p> : null}
-                  {event.points.length ? (
-                    <ul>
-                      {event.points.map((point) => (
-                        <li key={point.id}>
-                          <MapPin /> {point.lat.toFixed(4)}, {point.lng.toFixed(4)}{" "}
-                          {point.label ? <em>{point.label}</em> : null}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {event.documents.length ? (
-                    <ul>
-                      {event.documents.map((doc) => (
-                        <li key={doc.id}>
-                          <a href={doc.url} target="_blank" rel="noreferrer">
-                            <FileText /> {doc.filename}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {event.quantityDelta !== 0 ? (
-                    <em className={event.quantityDelta > 0 ? "delta-up" : "delta-down"}>
-                      {event.quantityDelta > 0 ? "+" : ""}
-                      {event.quantityDelta.toFixed(1)} kg
-                    </em>
-                  ) : null}
-                </div>
-              ))
-            ) : (
-              <p className="empty-state inline">Belum ada event.</p>
-            )}
-          </section>
-          <TraceCard barcode={product.barcode} productName={product.name} url={traceUrl} />
+      </div>
+
+      <div className="pcr-subproducts">
+        <h4>Sumber nelayan</h4>
+        {product.subProducts.length ? (
+          <div className="fisherman-grid">
+            {product.subProducts.map((sub) => (
+              <FishermanControl key={sub.id} productId={product.id} sub={sub} />
+            ))}
+          </div>
+        ) : (
+          <p className="hint">Belum ada sub-produk.</p>
+        )}
+      </div>
+
+      <button
+        type="button"
+        className="pcr-toggle"
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+      >
+        <ClipboardCheck />
+        {expanded ? "Sembunyikan" : "Lihat"} riwayat event ({product.history.length})
+        <ChevronDown className={expanded ? "rot" : ""} />
+      </button>
+
+      {expanded ? (
+        <div className="pcr-history">
+          {product.history.length ? (
+            product.history.map((event) => (
+              <div key={event.id} className="history-row">
+                <span>
+                  <strong>{HISTORY_KIND_LABELS[event.kind]}</strong>
+                  <small>{new Date(event.createdAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}</small>
+                </span>
+                {event.note ? <p>{event.note}</p> : null}
+                {event.points.length ? (
+                  <ul>
+                    {event.points.map((point) => (
+                      <li key={point.id}>
+                        <MapPin /> {point.lat.toFixed(4)}, {point.lng.toFixed(4)}
+                        {point.label ? ` — ${point.label}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {event.documents.length ? (
+                  <ul>
+                    {event.documents.map((doc) => (
+                      <li key={doc.id}>
+                        <a href={doc.url} target="_blank" rel="noreferrer">
+                          <FileText /> {doc.filename}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {event.quantityDelta !== 0 ? (
+                  <em className={event.quantityDelta > 0 ? "delta-up" : "delta-down"}>
+                    {event.quantityDelta > 0 ? "+" : ""}
+                    {event.quantityDelta.toFixed(1)} kg
+                  </em>
+                ) : null}
+              </div>
+            ))
+          ) : (
+            <p className="hint">Belum ada event tercatat.</p>
+          )}
+          <div className="pcr-tracebar">
+            <QrCode />
+            <span>
+              <strong>Barcode:</strong> {product.barcode}
+            </span>
+            <Link href={`/produk/${product.id}`} className="link-button" target="_blank">
+              Buka kartu telusur
+            </Link>
+          </div>
         </div>
       ) : null}
     </article>
@@ -457,15 +497,24 @@ function ProductRow({ product, onChanged }: { product: ProductDetail; onChanged:
 
 export default function PengepulDashboard({ user, products, orders }: PengepulDashboardProps) {
   const [list, setList] = useState<ProductDetail[]>(products);
-  const [filter, setFilter] = useState("Semua");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Semua");
+  const [query, setQuery] = useState("");
   const [modal, setModal] = useState<"create" | "profile" | "orders" | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ message: string; isError?: boolean } | null>(null);
   const router = useRouter();
 
-  const filtered = list.filter((product) => filter === "Semua" || product.type === filter);
+  const filtered = list.filter((product) => {
+    if (filter !== "Semua" && product.type !== filter) return false;
+    if (query.trim()) {
+      const q = query.trim().toLocaleLowerCase("id-ID");
+      return `${product.name} ${product.organization} ${product.location}`.toLocaleLowerCase("id-ID").includes(q);
+    }
+    return true;
+  });
   const newOrders = orders.filter((order) => order.status === "Baru").length;
   const totalStock = list.reduce((sum, product) => sum + product.available, 0);
+  const totalFishermen = list.reduce((sum, product) => sum + product.subProducts.length, 0);
 
   function flash(message: string, isError = false) {
     setNotice({ message, isError });
@@ -499,103 +548,114 @@ export default function PengepulDashboard({ user, products, orders }: PengepulDa
 
   return (
     <main className="app-shell pengepul-shell" id="top">
-      <header className="tokopedia-header">
-        <div className="top-strip">
-          <div className="top-strip-inner">
-            <span><Truck aria-hidden="true" /> Dashboard pengepul · agregasi & telusur per nelayan</span>
+      <header className="dashboard-header">
+        <div className="dashboard-header-inner">
+          <a className="brand" href="#top" aria-label="SeaGres, kembali ke atas">
+            <SeagresLogo size={32} />
+          </a>
+          <div className="dashboard-title">
+            <h1>Dasbor pengepul</h1>
+            <small>Agregasi & telusur per nelayan · {user.organization}</small>
           </div>
-        </div>
-        <div className="main-header">
-          <div className="main-header-inner">
-            <a className="brand" href="#top" aria-label="SeaGres, kembali ke atas">
-              <SeagresLogo size={32} />
-            </a>
-            <span className="role-pill">Pengepul</span>
-            <button type="button" className="avatar" onClick={() => setModal("profile")} aria-label={`Profil ${user.name}`}>
+          <div className="dashboard-search">
+            <Search aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Cari produk, lokasi, atau nelayan…"
+              aria-label="Cari produk"
+            />
+          </div>
+          <div className="dashboard-actions">
+            <button type="button" onClick={() => setModal("orders")} className="header-pill">
+              <ShoppingCart /> Pesanan {newOrders > 0 ? <i>{newOrders}</i> : null}
+            </button>
+            <button type="button" onClick={() => setModal("profile")} className="avatar" aria-label={`Profil ${user.name}`}>
               {user.initials}
             </button>
           </div>
         </div>
       </header>
 
-      <div className="page-shell">
-        <section className="hero-grid">
-          <div className="hero-side anim anim2">
-            <div className="side-card summary-card compact">
-              <div className="summary-stats">
-                <span><Package aria-hidden="true" /><strong>{list.length}</strong>produk</span>
-                <span><Scale aria-hidden="true" /><strong>{totalStock.toFixed(1)}</strong>kg total</span>
-                <span><ShoppingCart aria-hidden="true" /><strong>{newOrders}</strong>pesanan</span>
-              </div>
-              <button type="button" onClick={() => setModal("orders")}>
-                Buka pesanan <ChevronRight aria-hidden="true" />
-              </button>
-            </div>
+      <div className="dashboard-body">
+        <section className="stat-strip">
+          <div className="stat-card">
+            <Package aria-hidden="true" />
+            <span className="stat-label">Produk aktif</span>
+            <strong>{list.length}</strong>
+            <small>{filtered.length === list.length ? "Semua komoditas" : `Tampil ${filtered.length}`}</small>
+          </div>
+          <div className="stat-card">
+            <Scale aria-hidden="true" />
+            <span className="stat-label">Stok agregat</span>
+            <strong>{totalStock.toFixed(1)}<small> kg</small></strong>
+            <small>{totalFishermen} sumber nelayan</small>
+          </div>
+          <div className="stat-card">
+            <ShoppingCart aria-hidden="true" />
+            <span className="stat-label">Pesanan baru</span>
+            <strong>{newOrders}</strong>
+            <small>Butuh konfirmasi</small>
+          </div>
+          <div className="stat-card">
+            <ShieldCheck aria-hidden="true" />
+            <span className="stat-label">Status pengepul</span>
+            <strong>{user.verified ? "Terverifikasi" : "Menunggu"}</strong>
+            <small>{user.verificationBasis}</small>
           </div>
         </section>
 
-        <section className="operations-grid anim anim3">
-          <article className="supply-panel">
-            <div className="ops-heading">
-              <div><ClipboardCheck aria-hidden="true" /><h2>Produk agregasi aktif</h2></div>
-              <button className="primary-button" type="button" onClick={() => setModal("create")}>
-                <Plus /> Tambah produk
+        <section className="action-bar">
+          <div className="filter-chips" role="tablist" aria-label="Filter komoditas">
+            {FILTERS.map((item) => (
+              <button
+                key={item}
+                role="tab"
+                aria-selected={filter === item}
+                className={filter === item ? "selected" : ""}
+                type="button"
+                onClick={() => setFilter(item)}
+              >
+                {item}
               </button>
-            </div>
-            <p className="hint">
-              <ShieldCheck aria-hidden="true" /> Setiap produk memiliki barcode yang bisa dicetak menjadi kartu
-              telusur QR untuk setiap titik distribusi.
-            </p>
-            <div className="filters" aria-label="Filter komoditas">
-              {FILTERS.map((item) => (
-                <button
-                  key={item}
-                  className={filter === item ? "selected" : ""}
-                  type="button"
-                  onClick={() => setFilter(item)}
-                >
-                  {item}
+            ))}
+          </div>
+          <button className="primary-button add-product" type="button" onClick={() => setModal("create")}>
+            <Plus /> Tambah produk
+          </button>
+        </section>
+
+        <section className="product-stack">
+          {filtered.length ? (
+            filtered.map((product) => (
+              <ProductCard key={product.id} product={product} onChanged={() => router.refresh()} />
+            ))
+          ) : (
+            <div className="empty-state large">
+              <Package />
+              <h3>{list.length ? "Tidak ada produk cocok" : "Belum ada produk"}</h3>
+              <p>
+                {list.length
+                  ? "Coba ubah filter atau kata kunci pencarian."
+                  : "Tambahkan produk agregasi pertama untuk pengepulanmu."}
+              </p>
+              {!list.length ? (
+                <button className="primary-button" type="button" onClick={() => setModal("create")}>
+                  <Plus /> Tambah produk
                 </button>
-              ))}
+              ) : null}
             </div>
-            <div className="product-list">
-              {filtered.length ? (
-                filtered.map((product) => (
-                  <ProductRow
-                    key={product.id}
-                    product={product}
-                    onChanged={() => router.refresh()}
-                  />
-                ))
-              ) : (
-                <div className="empty-state">
-                  <Package />
-                  <h3>Belum ada produk</h3>
-                  <p>Tambahkan produk agregasi pertama untuk pengepulanmu.</p>
-                </div>
-              )}
-            </div>
-          </article>
+          )}
         </section>
 
-        <footer className="market-footer">
-          <div>
-            <SeagresLogo size={36} />
-            <p>Pengepul pesisir Gresik — dari banyak nelayan, satu jejak telusur.</p>
-          </div>
-          <div>
-            <b>Akun</b>
-            <button type="button" onClick={() => setModal("profile")}>Profil {user.name}</button>
-            <button type="button" onClick={doLogout}><LogOut /> Keluar</button>
-          </div>
+        <footer className="dashboard-footer">
+          <small>
+            <SeagresLogo size={20} showText={false} /> SeaGres · Pengepul pesisir Gresik
+          </small>
+          <small>© 2026 · dari banyak nelayan, satu jejak telusur</small>
         </footer>
       </div>
-
-      <nav className="bottom-nav" aria-label="Navigasi seluler">
-        <a className="active" href="#top"><Store /><span>Beranda</span></a>
-        <Link href="/"><UserRound /><span>Katalog</span></Link>
-        <button type="button" onClick={doLogout}><LogOut /><span>Keluar</span></button>
-      </nav>
 
       {notice ? (
         <div className={notice.isError ? "toast toast-error" : "toast"} role="status">
@@ -612,7 +672,7 @@ export default function PengepulDashboard({ user, products, orders }: PengepulDa
       {modal === "orders" ? (
         <Modal title={`Pesanan masuk (${newOrders})`} onClose={() => setModal(null)}>
           <div className="orders-panel">
-            <p className="hint">Penjualan dari katalog dilakukan via pre-order terhadap lot legacy. Notifikasi pesanan di luar konteks pengepul.</p>
+            <p className="hint">Penjualan dari katalog dilakukan via pre-order terhadap lot legacy.</p>
             {orders.length ? (
               <ul className="order-list">
                 {orders.map((order) => (
@@ -639,12 +699,15 @@ export default function PengepulDashboard({ user, products, orders }: PengepulDa
             <span className="avatar profile-avatar">{user.initials}</span>
             <h3>{user.name}</h3>
             <p>{user.organization} · {user.location}</p>
-            <span className="verified"><BadgeCheck /> {user.verified ? "Terverifikasi" : "Menunggu verifikasi"}</span>
+            <span className="verified">
+              <BadgeCheck /> {user.verified ? "Terverifikasi" : "Menunggu verifikasi"}
+            </span>
             <dl>
               <div><dt>Peran</dt><dd>{user.role}</dd></div>
               <div><dt>Dasar verifikasi</dt><dd>{user.verificationBasis}</dd></div>
               <div><dt>Nomor kelompok</dt><dd>{user.groupNumber}</dd></div>
             </dl>
+            <Link className="link-button" href="/">Lihat katalog publik</Link>
             <button type="button" className="logout-button" onClick={doLogout} disabled={busy}>
               <LogOut /> {busy ? "Keluar…" : "Keluar dari akun"}
             </button>
