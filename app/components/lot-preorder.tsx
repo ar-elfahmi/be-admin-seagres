@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { CalendarDays, ShieldCheck, ShoppingCart } from "lucide-react";
 import { preorder } from "../actions";
+import type { AccountType } from "../../lib/types";
 
 interface LotPreorderProps {
   lotId: string;
   weight: number;
   loggedIn: boolean;
-  accountType: "seller" | "buyer" | null;
+  accountType: AccountType | null;
 }
-
 export default function LotPreorder({ lotId, weight, loggedIn, accountType }: LotPreorderProps) {
   const [quantity, setQuantity] = useState<number | string>(Math.min(5, weight));
   const [done, setDone] = useState("");
@@ -30,12 +30,12 @@ export default function LotPreorder({ lotId, weight, loggedIn, accountType }: Lo
     );
   }
 
-  // Penjual hanya boleh mencatat lot; tombol pre-order hanya untuk pembeli agar
+  // Pengepul hanya boleh mencatat lot; tombol pre-order hanya untuk customer agar
   // tidak ada pengiriman yang pasti ditolak server.
-  if (accountType === "seller") {
+  if (accountType === "pengepul") {
     return (
       <p className="lot-note">
-        <ShieldCheck aria-hidden="true" /> Akun penjual dapat memantau lot ini. Pre-order dilakukan dari akun pembeli.
+        <ShieldCheck aria-hidden="true" /> Akun pengepul dapat memantau lot ini. Pre-order dilakukan dari akun customer.
       </p>
     );
   }
