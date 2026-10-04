@@ -3,8 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      // Foto lot dibatasi 4 MB di createLot; default 1 MB akan gagal diam-diam.
-      bodySizeLimit: "5mb",
+      // Evidence is 6 MB/file; server validates <=8 files and <=20 MB total.
+      // Leave room for multipart metadata instead of rejecting valid 6 MB files.
+      bodySizeLimit: "24mb",
     },
   },
 };

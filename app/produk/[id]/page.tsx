@@ -6,6 +6,9 @@ import { BadgeCheck, MapPin, Package, QrCode, Truck } from "lucide-react";
 import { getProductDetail } from "../../../lib/queries";
 import SeagresLogo from "../../components/seagres-logo";
 import TraceCard from "../../components/trace-card";
+import BuyerProductDetail from "../../components/buyer-product-detail";
+import { currentUser } from "../../../lib/session";
+import { toPublicUser } from "../../../lib/rows";
 const money = new Intl.NumberFormat("id-ID");
 
 interface PageProps {
@@ -37,6 +40,11 @@ export default async function ProdukPage({ params }: PageProps) {
   const detail = await getProductDetail(id);
   if (!detail) notFound();
 
+  const user = await currentUser();
+  if (user?.accountType === "customer") {
+    return <BuyerProductDetail product={detail} user={toPublicUser(user)!} />;
+  }
+
   const traceUrl = `/produk/${detail.id}`;
 
   return (
@@ -55,10 +63,11 @@ export default async function ProdukPage({ params }: PageProps) {
           <Image src={detail.image} alt={detail.name} fill sizes="(max-width: 880px) 100vw, 880px" unoptimized />
         </div>
         <div className="lot-body">
+          {detail.deletedAt ? <p className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-relaxed text-[#1e5aa8]">Produk diarsipkan. Riwayat sumber dan QR tetap tersedia; stok tercatat tidak sedang ditawarkan di katalog.</p> : null}
           <div className="lot-head">
             <div>
               <span className="verified">
-                <BadgeCheck aria-hidden="true" /> Agregasi terverifikasi
+                <BadgeCheck aria-hidden="true" /> Agregasi sumber tercatat
               </span>
               <h1>{detail.name}</h1>
               <p>{detail.barcode} · {detail.type} · {detail.size}</p>
@@ -121,7 +130,7 @@ export default async function ProdukPage({ params }: PageProps) {
                   <li key={event.id}>
                     <b>{historyKindLabel(event.kind)}</b>
                     <span>
-                      {new Date(event.createdAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
+                      {new Date(event.createdAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" })}
                       {" · "}
                       oleh {event.actor}
                       {event.note ? ` · ${event.note}` : ""}

@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import {
   applyAcceptEffects,
-  deleteProduct,
+  setProductArchived,
   findUserByEmail,
   getLot,
   getOrder,
@@ -16,18 +16,20 @@ import {
   insertHistory,
   insertLot,
   insertOrder,
-  insertProduct,
+  createProductReceipts,
   insertReport,
-  insertSubProduct,
   insertUser,
-  listOrderViews,
+  listBuyerOrderViews,
+  listSellerOrderViews,
   listLots,
+  listSubProducts,
   listProductDetailsByPengepul,
   reserveWeight,
   updateOrderStatus,
-  updateSubProductQuantity,
+  recordStockEvent,
 } from "../lib/queries";
 import { makeBarcode } from "../lib/barcode";
+import { fileContentMatches, uploadBudgetError } from "../lib/upload-policy";
 import { supabase } from "../lib/supabase";
 import { checkPassword, hashPassword, initialsOf } from "../lib/crypto";
 import { currentUser, startSession, endSession } from "../lib/session";
@@ -91,7 +93,24 @@ function newId(prefix: string): string {
 }
 
 function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : "";
+  return err instanceof Error ? err.message : typeof err === "object" && err !== null && "message" in err ? String(err.message) : "";
+}
+
+function validGeo(lat: number | null, lng: number | null): boolean {
+  if (lat === null && lng === null) return true;
+  return lat !== null && lng !== null && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+}
+
+async function evidenceError(files: File[], metas: DocumentMeta[]): Promise<string | null> {
+  const budgetError = uploadBudgetError(files);
+  if (budgetError) return budgetError;
+  for (let i = 0; i < files.length; i++) {
+    if (!ACCEPT_IMAGES[files[i].type] || files[i].size > 6 * 1024 * 1024) return "Bukti harus berupa gambar atau PDF, maksimal 6 MB per berkas.";
+    const meta = metas[i];
+    if (meta && (!validGeo(meta.capturedLat, meta.capturedLng) || (meta.capturedAt !== null && !Number.isFinite(Date.parse(meta.capturedAt))) || (meta.capturedAccuracyM !== null && meta.capturedAccuracyM < 0))) return "Metadata lokasi atau waktu foto tidak valid. Ambil ulang foto bukti.";
+    if (!fileContentMatches(files[i].type, new Uint8Array(await files[i].slice(0,16).arrayBuffer()))) return "Isi berkas tidak sesuai format gambar/PDF. Pilih berkas asli yang valid.";
+  }
+  return null;
 }
 
 export async function login(email: unknown, password: unknown): Promise<{ error?: string; ok?: boolean }> {
@@ -180,7 +199,7 @@ export async function createLot(formData: FormData): Promise<{ error?: string; o
   const photo = formData.get("photo");
   if (photo && typeof photo === "object" && "size" in photo && typeof photo.size === "number" && photo.size > 0 && "type" in photo) {
     const fileType = String(photo.type || "");
-    const ext = ACCEPT_IMAGES[fileType];
+    const ext = fileType.startsWith("image/") ? ACCEPT_IMAGES[fileType] : undefined;
     if (!ext) return { error: "Format foto harus PNG, JPG, WebP, atau GIF." };
     if (photo.size > 4 * 1024 * 1024) return { error: "Ukuran foto maksimal 4 MB." };
     const buffer = Buffer.from(await (photo as Blob).arrayBuffer());
@@ -248,7 +267,7 @@ export async function preorder(
   };
   await insertOrder(order);
   revalidatePath("/");
-  return { ok: true, order, orders: await listOrderViews() };
+  return { ok: true, order, orders: await listBuyerOrderViews(user.id) };
 }
 
 export async function setOrderStatus(
@@ -271,7 +290,7 @@ export async function setOrderStatus(
   }
   revalidatePath("/");
   revalidatePath(`/lot/${lot.id}`);
-  return { ok: true, orders: await listOrderViews(), lots: await listLots() };
+  return { ok: true, orders: await listSellerOrderViews(user.organization), lots: (await listLots()).filter((item) => item.seller === user.organization) };
 }
 
 export async function reportIssue(
@@ -389,8 +408,8 @@ function readFishermanRows(formData: FormData): ParsedFisherman[] {
       index: i,
       name,
       fishermanName,
-      quantity: Number.isNaN(quantity) ? 0 : quantity,
-      price: Number.isNaN(price) ? 0 : price,
+      quantity,
+      price,
       minOrderKg: Number.isFinite(minOrderRaw) && minOrderRaw > 0 ? minOrderRaw : 1,
       grade: asGrade(gradeRaw),
       quality: {
@@ -414,10 +433,11 @@ async function uploadProductPhoto(formData: FormData): Promise<string | null> {
     return null;
   }
   const fileType = String(photo.type || "");
-  const ext = ACCEPT_IMAGES[fileType];
+  const ext = fileType.startsWith("image/") ? ACCEPT_IMAGES[fileType] : undefined;
   if (!ext) return "__invalid__";
   if (photo.size > 4 * 1024 * 1024) return "__too_large__";
   const buffer = Buffer.from(await (photo as Blob).arrayBuffer());
+  if (!fileContentMatches(fileType, buffer)) return "__invalid__";
   const objectPath = `products/${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}.${ext}`;
   const { error: uploadError } = await supabase()
     .storage
@@ -447,6 +467,7 @@ async function uploadHistoryDocuments(
   const failures: string[] = [];
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
+    try {
     const meta = metas[i] ?? null;
     const fileType = String(file.type || "");
     const ext = ACCEPT_IMAGES[fileType];
@@ -456,10 +477,6 @@ async function uploadHistoryDocuments(
     }
     if (file.size > 6 * 1024 * 1024) {
       failures.push(`${file.name || "berkas"} lebih dari 6 MB`);
-      continue;
-    }
-    if (!meta || meta.capturedLat === null || meta.capturedLng === null) {
-      failures.push(`${file.name || "berkas"} tanpa koordinat GPS — ambil ulang lewat tombol kamera`);
       continue;
     }
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -481,18 +498,22 @@ async function uploadHistoryDocuments(
       mime: fileType,
       kind: ext === "pdf" ? "dokumen" : "foto",
       createdAt: new Date().toISOString(),
-      capturedAt: meta.capturedAt,
-      capturedLat: meta.capturedLat,
-      capturedLng: meta.capturedLng,
-      capturedAccuracyM: meta.capturedAccuracyM,
+      capturedAt: meta?.capturedAt ?? null,
+      capturedLat: meta?.capturedLat ?? null,
+      capturedLng: meta?.capturedLng ?? null,
+      capturedAccuracyM: meta?.capturedAccuracyM ?? null,
     });
     inserted++;
+    } catch {
+      failures.push(`${file.name || "berkas"} belum tersimpan sebagai bukti`);
+    }
   }
   return { inserted, failures };
 }
 
 export type CreateProductResult = {
   error?: string;
+  warning?: string;
   ok?: boolean;
   product?: ProductDetail;
   products?: ProductDetail[];
@@ -514,12 +535,12 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
   const coretRaw = String(formData.get("coret") || "").trim();
   const coret = coretRaw ? Math.round(Number(coretRaw)) : null;
 
-  if (!name || !size || !location || Number.isNaN(price) || price < 1000) {
+  if (!name || !size || !location || !Number.isFinite(price) || price < 1000 || !["Bandeng", "Udang", "Kerang", "Olahan"].includes(type)) {
     return { error: "Lengkapi nama, ukuran, lokasi, dan harga minimal Rp1.000." };
   }
 
   const fishermen = readFishermanRows(formData);
-  const badPrice = fishermen.find((row) => row.fishermanName && (row.price < 1000));
+  const badPrice = fishermen.find((row) => row.fishermanName && (!Number.isFinite(row.price) || row.price < 1000));
   if (badPrice) {
     return { error: `Harga per kg untuk ${badPrice.fishermanName} wajib diisi, minimal Rp1.000.` };
   }
@@ -531,14 +552,19 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
     if (!row.fishermanName) {
       return { error: `Nama nelayan baris ke-${row.index + 1} belum diisi.` };
     }
-    if (Number.isNaN(row.quantity) || row.quantity < 0) {
+    if (!Number.isFinite(row.quantity) || row.quantity < 0 || Math.abs(row.quantity * 10 - Math.round(row.quantity * 10)) > 0.000001) {
       return { error: `Kuantitas nelayan ${row.fishermanName} tidak valid.` };
     }
-    if ((row.geoLat === null) !== (row.geoLng === null)) {
+    if (!validGeo(row.geoLat, row.geoLng)) {
       return { error: `Lokasi geo nelayan ${row.fishermanName} harus diisi lengkap atau kosong.` };
     }
+    const invalidEvidence = await evidenceError(row.files, row.metas);
+    if (invalidEvidence) return { error: invalidEvidence };
   }
 
+  const photo = formData.get("photo");
+  const combinedBudget = uploadBudgetError(fishermen.flatMap((row) => row.files), photo instanceof File ? photo.size : 0);
+  if (combinedBudget) return { error: combinedBudget };
   const uploaded = await uploadProductPhoto(formData);
   if (uploaded === "__invalid__") return { error: "Format foto harus PNG, JPG, WebP, atau GIF." };
   if (uploaded === "__too_large__") return { error: "Ukuran foto maksimal 4 MB." };
@@ -546,8 +572,6 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
   const image = uploaded ?? DEFAULT_IMAGES[type] ?? DEFAULT_IMAGES.Bandeng;
 
   const now = new Date();
-  const estimatedCatchAt = new Date(now);
-  estimatedCatchAt.setDate(estimatedCatchAt.getDate() - 1);
   const id = newId("PRD");
   const barcode = makeBarcode(id, now);
   const product: Product = {
@@ -566,16 +590,8 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
     createdAt: now.toISOString(),
   };
 
-  try {
-    await insertProduct(product);
-  } catch (err: unknown) {
-    const message = errorMessage(err);
-    if (message.toLowerCase().includes("unique") || message.toLowerCase().includes("duplicate")) {
-      return { error: "Produk dengan nama ini sudah ada di pengepulanmu." };
-    }
-    throw err;
-  }
-
+  const receipts: Array<{ sub: SubProduct; historyId: string; note: string | null }> = [];
+  const evidenceFailures: string[] = [];
   for (const row of fishermen) {
     const subId = newId("SUB");
     const sub: SubProduct = {
@@ -594,35 +610,19 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
       barcode: makeBarcode(subId, now),
       createdAt: now.toISOString(),
     };
-    await insertSubProduct(sub);
-    const subHistory: ProductHistory = {
-      id: newId("HIS"),
-      productId: product.id,
-      subProductId: subId,
-      actorId: user.id,
-      actor: user.name,
-      kind: "tambah_produk",
-      stage: "estimasi_tangkap",
-      note: String(formData.get("historyNote") || "").trim() || null,
-      quantityDelta: row.quantity,
-      createdAt: estimatedCatchAt.toISOString(),
-      points: [],
-      documents: [],
-    };
-    await insertHistory(subHistory);
-    if (row.geoLat !== null && row.geoLng !== null) {
-      await insertGeoPoint({
-        id: newId("GEO"),
-        historyId: subHistory.id,
-        lat: row.geoLat,
-        lng: row.geoLng,
-        label: `Nelayan ${row.fishermanName}`,
-        createdAt: now.toISOString(),
-      });
-    }
-    const docResult = await uploadHistoryDocuments(row.files, subHistory.id, row.metas);
+    receipts.push({ sub, historyId: newId("HIS"), note: String(formData.get("historyNote") || "").trim() || null });
+  }
+  try {
+    await createProductReceipts(product, product.id, user.id, receipts);
+  } catch (err) {
+    const message = errorMessage(err);
+    return { error: message.includes("create_product_receipts") || message.includes("schema cache") ? "Jalankan migrasi 20261010000000_mvp_stock_consistency.sql di Supabase agar produk, penerimaan, dan riwayat dapat disimpan bersama." : "Produk belum dapat disimpan. Periksa data atau nama produk yang sudah ada, lalu coba lagi." };
+  }
+  for (let i = 0; i < fishermen.length; i++) {
+    const row = fishermen[i];
+    const docResult = await uploadHistoryDocuments(row.files, receipts[i].historyId, row.metas);
     if (docResult.failures.length) {
-      console.warn("Dokumen gagal diunggah", docResult.failures);
+      evidenceFailures.push(...docResult.failures);
     }
   }
 
@@ -632,7 +632,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
   revalidatePath("/pengepul");
   revalidatePath(`/produk/${product.id}`);
   revalidatePath(`/pengepul/produk/${product.id}`);
-  return { ok: true, product: detail ?? undefined, products };
+  return { ok: true, product: detail ?? undefined, products, warning: evidenceFailures.length ? `Produk tersimpan, tetapi bukti belum lengkap: ${evidenceFailures.join("; ")}. Tambahkan kembali bukti melalui riwayat.` : undefined };
 }
 
 export type UpdateProductQuantityResult = {
@@ -653,11 +653,12 @@ export async function updateProductQuantity(
   if (user.accountType !== "pengepul") return { error: "Hanya akun pengepul yang bisa mengubah kuantitas." };
   if (kind !== "terima_nelayan" && kind !== "jual") return { error: "Aksi tidak valid." };
   const amount = Number(quantity);
-  if (Number.isNaN(amount) || amount <= 0) return { error: "Masukkan kuantitas lebih dari 0." };
+  if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount * 10 - Math.round(amount * 10)) > 0.000001) return { error: "Masukkan kuantitas lebih dari 0, maksimal satu angka desimal." };
 
   const product = await getProduct(productId);
   if (!product) return { error: "Produk tidak ditemukan." };
   if (product.pengepulId !== user.id) return { error: "Produk ini bukan milikmu." };
+  if (product.deletedAt) return { error: "Produk diarsipkan. Pulihkan dari tab Arsip sebelum mengubah stok." };
 
   const sub = await getSubProduct(subProductId);
   if (!sub || sub.productId !== productId) return { error: "Sub-produk tidak ditemukan." };
@@ -665,8 +666,6 @@ export async function updateProductQuantity(
   const delta = kind === "terima_nelayan" ? amount : -amount;
   const next = sub.quantity + delta;
   if (next < 0) return { error: "Jumlah jual melebihi sisa sub-produk." };
-
-  await updateSubProductQuantity(sub.id, next);
 
   const history: ProductHistory = {
     id: newId("HIS"),
@@ -682,7 +681,14 @@ export async function updateProductQuantity(
     points: [],
     documents: [],
   };
-  await insertHistory(history);
+  try {
+    await recordStockEvent(history);
+  } catch (err) {
+    const message = errorMessage(err);
+    if (message.includes("PRODUCT_ARCHIVED")) return { error: "Produk baru saja diarsipkan. Stok tidak diubah; muat ulang halaman." };
+    if (message.includes("record_stock_event") || message.includes("schema cache")) return { error: "Pencatatan stok membutuhkan migrasi 20261010000000_mvp_stock_consistency.sql. Jalankan migrasi di Supabase terlebih dahulu; stok belum diubah." };
+    return { error: message.includes("INSUFFICIENT_STOCK") ? "Stok telah berubah atau tidak cukup. Muat ulang halaman sebelum mencatat penjualan." : "Stok dan riwayat belum dapat disimpan. Muat ulang halaman dan periksa koneksi." };
+  }
 
   const detail = await getProductDetail(product.id);
   const products = await listProductDetailsByPengepul(user.id);
@@ -714,6 +720,7 @@ export async function addProductHistory(formData: FormData): Promise<AddProductH
   const product = await getProduct(productId);
   if (!product) return { error: "Produk tidak ditemukan." };
   if (product.pengepulId !== user.id) return { error: "Produk ini bukan milikmu." };
+  if (product.deletedAt) return { error: "Produk diarsipkan. Pulihkan sebelum mencatat riwayat baru." };
 
   let subProductId: string | null = null;
   if (subProductIdRaw) {
@@ -779,6 +786,7 @@ export async function addProductHistory(formData: FormData): Promise<AddProductH
 
 export type AddSubProductResult = {
   error?: string;
+  warning?: string;
   ok?: boolean;
   detail?: ProductDetail;
   subProductId?: string;
@@ -795,13 +803,14 @@ export async function addSubProductAction(
   const product = await getProduct(productId);
   if (!product) return { error: "Produk tidak ditemukan." };
   if (product.pengepulId !== user.id) return { error: "Produk ini bukan milikmu." };
+  if (product.deletedAt) return { error: "Produk diarsipkan. Pulihkan sebelum menerima hasil nelayan." };
 
   const fishermanName = String(formData.get("fishermanName") || "").trim();
   if (!fishermanName) return { error: "Nama nelayan wajib diisi." };
   const quantity = Number(formData.get("quantity"));
-  if (Number.isNaN(quantity) || quantity < 0) return { error: "Kuantitas tidak valid." };
+  if (!Number.isFinite(quantity) || quantity < 0 || Math.abs(quantity * 10 - Math.round(quantity * 10)) > 0.000001) return { error: "Kuantitas tidak valid, maksimal satu angka desimal." };
   const priceRaw = Number(formData.get("price"));
-  if (!formData.get("price") || Number.isNaN(priceRaw) || priceRaw < 1000) {
+  if (!formData.get("price") || !Number.isFinite(priceRaw) || priceRaw < 1000) {
     return { error: "Harga per kg wajib diisi, minimal Rp1.000." };
   }
   const price = priceRaw;
@@ -812,7 +821,7 @@ export async function addSubProductAction(
   const lngRaw = String(formData.get("geoLng") || "").trim();
   const geoLat = latRaw ? Number(latRaw) : null;
   const geoLng = lngRaw ? Number(lngRaw) : null;
-  if ((geoLat === null) !== (geoLng === null)) {
+  if (!validGeo(geoLat, geoLng)) {
     return { error: "Lokasi geo harus diisi lengkap atau kosong keduanya." };
   }
   const cleanHandling = formData.get("qualityClean") === "on";
@@ -826,11 +835,11 @@ export async function addSubProductAction(
     }
   }
   const documentMetas = readDocumentMetasTopLevel(formData);
+  const invalidEvidence = await evidenceError(documentFiles, documentMetas);
+  if (invalidEvidence) return { error: invalidEvidence };
   const note = String(formData.get("historyNote") || "").trim() || null;
 
   const now = new Date();
-  const estimatedCatchAt = new Date(now);
-  estimatedCatchAt.setDate(estimatedCatchAt.getDate() - 1);
   const subId = newId("SUB");
   const sub: SubProduct = {
     id: subId,
@@ -848,41 +857,15 @@ export async function addSubProductAction(
     barcode: makeBarcode(subId, now),
     createdAt: now.toISOString(),
   };
+  const historyId = newId("HIS");
   try {
-    await insertSubProduct(sub);
-  } catch (err: unknown) {
+    await createProductReceipts(null, product.id, user.id, [{ sub, historyId, note }]);
+  } catch (err) {
     const message = errorMessage(err);
-    if (message.toLowerCase().includes("unique") || message.toLowerCase().includes("duplicate")) {
-      return { error: "Penerimaan ini duplikat menurut database. Jalankan migrasi 20261007000000 (cabut unique product_id + fisherman_name) di Supabase SQL editor, lalu coba lagi." };
-    }
-    throw err;
+    if (message.includes("PRODUCT_ARCHIVED")) return { error: "Produk baru saja diarsipkan. Penerimaan tidak disimpan; muat ulang halaman." };
+    return { error: message.includes("create_product_receipts") || message.includes("schema cache") ? "Jalankan migrasi 20261010000000_mvp_stock_consistency.sql di Supabase agar penerimaan dan riwayat tersimpan bersama." : "Penerimaan belum dapat disimpan. Periksa data lalu coba lagi." };
   }
-  const history: ProductHistory = {
-    id: newId("HIS"),
-    productId: product.id,
-    subProductId: subId,
-    actorId: user.id,
-    actor: user.name,
-    kind: "tambah_produk",
-    stage: "estimasi_tangkap",
-    note,
-    quantityDelta: quantity,
-    createdAt: estimatedCatchAt.toISOString(),
-    points: [],
-    documents: [],
-  };
-  await insertHistory(history);
-  if (geoLat !== null && geoLng !== null) {
-    await insertGeoPoint({
-      id: newId("GEO"),
-      historyId: history.id,
-      lat: geoLat,
-      lng: geoLng,
-      label: `Nelayan ${fishermanName}`,
-      createdAt: now.toISOString(),
-    });
-  }
-  await uploadHistoryDocuments(documentFiles, history.id, documentMetas);
+  const documentsResult = await uploadHistoryDocuments(documentFiles, historyId, documentMetas);
 
   const detail = await getProductDetail(product.id);
   revalidatePath("/");
@@ -890,13 +873,14 @@ export async function addSubProductAction(
   revalidatePath(`/produk/${product.id}`);
   revalidatePath(`/pengepul/produk/${product.id}`);
   revalidatePath(`/pengepul/produk/${product.id}/sub/${subId}`);
-  return { ok: true, detail: detail ?? undefined, subProductId: subId };
+  return { ok: true, detail: detail ?? undefined, subProductId: subId, warning: documentsResult.failures.length ? `Penerimaan tersimpan, tetapi bukti belum lengkap: ${documentsResult.failures.join("; ")}.` : undefined };
 }
 
 /* ---------- Tambah event history ke sub-product ---------- */
 
 export type AddHistoryEventResult = {
   error?: string;
+  warning?: string;
   ok?: boolean;
   detail?: ProductDetail;
   eventId?: string;
@@ -914,6 +898,7 @@ export async function addHistoryEventAction(
   const product = await getProduct(productId);
   if (!product) return { error: "Produk tidak ditemukan." };
   if (product.pengepulId !== user.id) return { error: "Produk ini bukan milikmu." };
+  if (product.deletedAt) return { error: "Produk diarsipkan. Pulihkan sebelum mencatat riwayat baru." };
 
   const sub = await getSubProduct(subProductId);
   if (!sub || sub.productId !== productId) return { error: "Sub-produk tidak ditemukan." };
@@ -923,16 +908,16 @@ export async function addHistoryEventAction(
   if (!stage) return { error: "Pilih stage yang valid." };
   const note = String(formData.get("note") || "").trim() || null;
   const quantityDeltaRaw = Number(formData.get("quantityDelta"));
-  const quantityDelta = Number.isFinite(quantityDeltaRaw) ? quantityDeltaRaw : 0;
+  if (!Number.isFinite(quantityDeltaRaw) || quantityDeltaRaw !== 0) return { error: "Riwayat proses tidak mengubah stok. Gunakan Terima atau Jual untuk mencatat perubahan kuantitas." };
+  const quantityDelta = 0;
 
   const geoRows: Array<{ lat: number; lng: number; label: string | null }> = [];
   for (let i = 0; formData.has(`geoLat[${i}]`); i++) {
     const lat = Number(formData.get(`geoLat[${i}]`));
     const lng = Number(formData.get(`geoLng[${i}]`));
     const label = String(formData.get(`geoLabel[${i}]`) || "").trim() || null;
-    if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-      geoRows.push({ lat, lng, label });
-    }
+    if (!String(formData.get(`geoLat[${i}]`) ?? "").trim() || !String(formData.get(`geoLng[${i}]`) ?? "").trim() || !validGeo(lat, lng)) return { error: "Koordinat geotag tidak valid. Isi kedua koordinat dengan lengkap." };
+    geoRows.push({ lat, lng, label });
   }
   const documentFiles: File[] = [];
   for (const value of formData.getAll("documents[]")) {
@@ -941,6 +926,8 @@ export async function addHistoryEventAction(
     }
   }
   const documentMetas = readDocumentMetasTopLevel(formData);
+  const invalidEvidence = await evidenceError(documentFiles, documentMetas);
+  if (invalidEvidence) return { error: invalidEvidence };
   const now = new Date();
   const history: ProductHistory = {
     id: newId("HIS"),
@@ -968,14 +955,14 @@ export async function addHistoryEventAction(
     });
   }
 
-  await uploadHistoryDocuments(documentFiles, history.id, documentMetas);
+  const documentsResult = await uploadHistoryDocuments(documentFiles, history.id, documentMetas);
   const detail = await getProductDetail(product.id);
   revalidatePath("/");
   revalidatePath("/pengepul");
   revalidatePath(`/produk/${product.id}`);
   revalidatePath(`/pengepul/produk/${product.id}`);
   revalidatePath(`/pengepul/produk/${product.id}/sub/${sub.id}`);
-  return { ok: true, detail: detail ?? undefined, eventId: history.id };
+  return { ok: true, detail: detail ?? undefined, eventId: history.id, warning: documentsResult.failures.length ? `Riwayat tersimpan, tetapi bukti belum lengkap: ${documentsResult.failures.join("; ")}.` : undefined };
 }
 
 export type DeleteProductResult = {
@@ -984,16 +971,36 @@ export type DeleteProductResult = {
   products?: ProductDetail[];
 };
 
-export async function deleteProductAction(productId: string): Promise<DeleteProductResult> {
+async function changeProductArchive(productId: string, archived: boolean): Promise<DeleteProductResult> {
   const user = await currentUser();
-  if (!user) return { error: "Masuk dulu untuk menghapus produk." };
-  if (user.accountType !== "pengepul") return { error: "Hanya akun pengepul yang bisa menghapus produk." };
+  if (!user) return { error: "Masuk dulu untuk mengelola arsip." };
+  if (user.accountType !== "pengepul") return { error: "Hanya akun pengepul yang bisa mengelola arsip." };
   const product = await getProduct(productId);
   if (!product) return { error: "Produk tidak ditemukan." };
   if (product.pengepulId !== user.id) return { error: "Produk ini bukan milikmu." };
-  await deleteProduct(productId);
+  try {
+    await setProductArchived(productId, user.id, archived);
+  } catch (err) {
+    const message = errorMessage(err);
+    return { error: message.includes("set_product_archived") || message.includes("schema cache")
+      ? "Arsip memerlukan migrasi 20261012000000_product_archive.sql di Supabase. Produk belum diubah atau dihapus."
+      : "Status arsip belum dapat disimpan. Muat ulang dan coba lagi." };
+  }
   const products = await listProductDetailsByPengepul(user.id);
   revalidatePath("/");
   revalidatePath("/pengepul");
+  revalidatePath("/dashboard");
+  revalidatePath(`/produk/${productId}`);
+  revalidatePath(`/pengepul/produk/${productId}`);
+  for (const sub of await listSubProducts(productId)) revalidatePath(`/trace/${sub.barcode}`);
   return { ok: true, products };
+}
+
+/** Kept for existing callers; this now archives, never deletes rows. */
+export async function deleteProductAction(productId: string): Promise<DeleteProductResult> {
+  return changeProductArchive(productId, true);
+}
+
+export async function restoreProductAction(productId: string): Promise<DeleteProductResult> {
+  return changeProductArchive(productId, false);
 }

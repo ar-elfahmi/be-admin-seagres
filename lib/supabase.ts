@@ -1,3 +1,4 @@
+import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -18,6 +19,12 @@ export function supabase(): SupabaseClient {
   if (!cached) {
     cached = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
       auth: { persistSession: false, autoRefreshToken: false },
+      global: {
+        // A disconnected database must not leave login or form buttons busy forever.
+        fetch: (input, init) => fetch(input, { ...init, signal: init?.signal
+          ? AbortSignal.any([init.signal, AbortSignal.timeout(15000)])
+          : AbortSignal.timeout(15000) }),
+      },
     });
   }
   return cached;

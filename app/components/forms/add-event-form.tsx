@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { addHistoryEventAction } from "../../actions";
 import { HISTORY_STAGES, HISTORY_STAGE_LABELS, type HistoryStage } from "../../../lib/types";
+import VerifiedPhotoCapture, { type VerifiedDoc } from "../verified-photo-capture";
 
 interface GeoEntry {
   id: string;
@@ -27,17 +28,20 @@ function newId() {
 interface Props {
   productId: string;
   subProductId: string;
+  actorName: string;
+  productLabel: string;
 }
 
-export default function AddEventForm({ productId, subProductId }: Props) {
+export default function AddEventForm({ productId, subProductId, actorName, productLabel }: Props) {
   const router = useRouter();
   const [stage, setStage] = useState<HistoryStage>(HISTORY_STAGES[0]);
   const [note, setNote] = useState("");
-  const [quantityDelta, setQuantityDelta] = useState("0");
+  const [photos, setPhotos] = useState<VerifiedDoc[]>([]);
   const [geo, setGeo] = useState<GeoEntry[]>([]);
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   function addGeo() {
     setGeo((current) => current.concat({ id: newId(), lat: "", lng: "", label: "" }));
@@ -56,8 +60,8 @@ export default function AddEventForm({ productId, subProductId }: Props) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         updateGeo(id, {
-          lat: String(pos.coords.latitude),
-          lng: String(pos.coords.longitude),
+          lat: pos.coords.latitude.toFixed(6),
+          lng: pos.coords.longitude.toFixed(6),
         });
       },
       () => setError("Tidak bisa mendapatkan lokasi."),
@@ -82,20 +86,25 @@ export default function AddEventForm({ productId, subProductId }: Props) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setSuccess(null);
     const data = new FormData();
     data.set("stage", stage);
     data.set("note", note);
-    data.set("quantityDelta", quantityDelta);
-    geo.forEach((entry, index) => {
-      if (entry.lat && entry.lng) {
+    data.set("quantityDelta", "0");
+    if (geo.some((entry) => Boolean(entry.lat) !== Boolean(entry.lng))) {
+      setError("Isi latitude dan longitude lengkap, atau hapus titik yang belum selesai.");
+      return;
+    }
+    geo.filter((entry) => entry.lat && entry.lng).forEach((entry, index) => {
         data.set(`geoLat[${index}]`, entry.lat);
         data.set(`geoLng[${index}]`, entry.lng);
         data.set(`geoLabel[${index}]`, entry.label);
-      }
     });
+    for (const entry of photos) data.append("documents[]", entry.blob, entry.filename);
     for (const entry of docs) {
       data.append("documents[]", entry.file);
     }
+    data.set("documentsMeta", JSON.stringify([...photos.map((entry) => ({ capturedAt: entry.capturedAt, capturedLat: entry.capturedLat, capturedLng: entry.capturedLng, capturedAccuracyM: entry.capturedAccuracyM })), ...docs.map(() => ({}))]));
     setBusy(true);
     try {
       const res = await addHistoryEventAction(productId, subProductId, data);
@@ -104,10 +113,13 @@ export default function AddEventForm({ productId, subProductId }: Props) {
         return;
       }
       setNote("");
-      setQuantityDelta("0");
       setGeo([]);
       setDocs([]);
+      setPhotos([]);
+      setSuccess(res.warning || "Riwayat proses tersimpan.");
       router.refresh();
+    } catch {
+      setError("Riwayat belum dapat disimpan. Periksa koneksi lalu coba lagi.");
     } finally {
       setBusy(false);
     }
@@ -116,6 +128,7 @@ export default function AddEventForm({ productId, subProductId }: Props) {
   return (
     <form className="form" onSubmit={submit}>
       {error ? <div className="form-error">{error}</div> : null}
+      {success ? <p role="status" className="form-success">{success}</p> : null}
       <label>
         Stage event
         <select value={stage} onChange={(e) => setStage(e.target.value as HistoryStage)}>
@@ -126,17 +139,7 @@ export default function AddEventForm({ productId, subProductId }: Props) {
           ))}
         </select>
       </label>
-      <div className="form-grid">
-        <label>
-          Perubahan kuantitas (kg) <small>(opsional, + atau -)</small>
-          <input
-            type="number"
-            step="0.1"
-            value={quantityDelta}
-            onChange={(e) => setQuantityDelta(e.target.value)}
-          />
-        </label>
-      </div>
+      <p className="hint">Riwayat proses tidak mengubah stok. Gunakan Terima untuk penerimaan baru, atau Jual untuk mengurangi stok sekaligus mencatat penjualan.</p>
       <label>
         Catatan <small>(opsional)</small>
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="ex: Pendaratan di PPS Ujungpangkah" />
@@ -193,8 +196,11 @@ export default function AddEventForm({ productId, subProductId }: Props) {
         </button>
       </fieldset>
 
+      <VerifiedPhotoCapture actorName={actorName} productLabel={productLabel} docs={photos} onChange={setPhotos}
+        onCoords={(coords) => setGeo((current) => current.length ? current : [{ id: newId(), lat: coords.lat.toFixed(6), lng: coords.lng.toFixed(6), label: "Lokasi pencatatan" }])} />
+
       <label>
-        Dokumen pendukung (foto / PDF)
+        Berkas pendukung tambahan (foto / PDF, tanpa klaim geotag)
         <input
           className="file-input"
           type="file"

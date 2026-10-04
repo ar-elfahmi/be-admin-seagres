@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { listCatalogProducts, listOrderViews, listPrices, listProductDetailsByPengepul, listRecentActivity } from "../../lib/queries";
+import { listBuyerCatalogProducts, listSellerOrderViews, listPrices, listProductDetailsByPengepul, listRecentActivity } from "../../lib/queries";
+import { priceDay, priceMonths } from "../../lib/price-periods";
 import { toPublicUser } from "../../lib/rows";
 import { currentUser } from "../../lib/session";
 import PengepulDashboard from "../components/pengepul-dashboard";
@@ -16,24 +17,23 @@ export default async function DashboardPage() {
   if (user.accountType === "pengepul") {
     const [products, orders, activity] = await Promise.all([
       listProductDetailsByPengepul(user.id),
-      listOrderViews(),
+      listSellerOrderViews(user.organization),
       listRecentActivity(user.id, 8),
     ]);
     return <PengepulDashboard user={pUser} products={products} orders={orders} activity={activity} />;
   }
 
 
-  const [initialProducts, initialOrders, prices] = await Promise.all([
-    listCatalogProducts(),
-    listOrderViews(),
+  const [initialProducts, prices] = await Promise.all([
+    listBuyerCatalogProducts(),
     listPrices(),
   ]);
   return (
     <Storefront
       user={pUser}
       initialProducts={initialProducts}
-      initialOrders={initialOrders}
       prices={prices}
+      dateRange={{ min: priceMonths(new Date())[0].key, max: priceDay(new Date())! }}
     />
   );
 }

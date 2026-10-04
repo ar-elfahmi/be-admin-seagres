@@ -44,7 +44,7 @@ function isLocalAsset(src: string): boolean {
 }
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(iso).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" });
 }
 
 function groupByFisherman(detail: ProductDetail) {
@@ -72,17 +72,17 @@ function groupByFisherman(detail: ProductDetail) {
 interface GradeSummary {
   grade: ProductGrade;
   quantity: number;
-  pricePerKg: number;
+  pricePerKg: number | null;
   receipts: number;
 }
 
 function groupByGrade(detail: ProductDetail): GradeSummary[] {
-  const map = new Map<ProductGrade, { quantity: number; weighted: number; receipts: number }>();
+  const map = new Map<ProductGrade, { quantity: number; pricedQuantity: number; weighted: number; receipts: number }>();
   for (const sub of detail.subProducts) {
     if (!sub.grade) continue;
-    const entry = map.get(sub.grade) ?? { quantity: 0, weighted: 0, receipts: 0 };
+    const entry = map.get(sub.grade) ?? { quantity: 0, pricedQuantity: 0, weighted: 0, receipts: 0 };
     entry.quantity += sub.quantity;
-    entry.weighted += sub.price * sub.quantity;
+    if (sub.price > 0 && sub.quantity > 0) { entry.weighted += sub.price * sub.quantity; entry.pricedQuantity += sub.quantity; }
     entry.receipts += 1;
     map.set(sub.grade, entry);
   }
@@ -94,7 +94,7 @@ function groupByGrade(detail: ProductDetail): GradeSummary[] {
       return {
         grade: g,
         quantity: entry.quantity,
-        pricePerKg: entry.quantity > 0 ? entry.weighted / entry.quantity : 0,
+        pricePerKg: entry.pricedQuantity > 0 ? entry.weighted / entry.pricedQuantity : null,
         receipts: entry.receipts,
       };
     });
@@ -150,10 +150,11 @@ export default async function PengepulProdukPage({ params }: PageProps) {
           />
         </div>
         <div className="lot-body">
+          {detail.deletedAt ? <p className="archive-note">Produk diarsipkan. Stok, bukti, dan QR tetap tersimpan. <Link href="/dashboard">Pulihkan melalui tab Arsip di dashboard</Link> untuk menerima atau menjual kembali.</p> : null}
           <div className="lot-head">
             <div>
               <span className="verified">
-                <BadgeCheck aria-hidden="true" /> Agregasi terverifikasi
+                <BadgeCheck aria-hidden="true" /> Agregasi sumber tercatat
               </span>
               <h1>{detail.name}</h1>
               <p>
@@ -165,18 +166,19 @@ export default async function PengepulProdukPage({ params }: PageProps) {
                 <Scale aria-hidden="true" /> {detail.available.toFixed(1)}
                 <small>kg total</small>
               </span>
-              <TerimaButton
+              {!detail.deletedAt ? <TerimaButton
                 productId={detail.id}
                 productName={detail.name}
                 productType={detail.type}
                 productSize={detail.size}
-                actorName={detail.organization}
-              />
+                actorName={user.name}
+              /> : null}
             </div>
           </div>
 
           <section className="grade-summary" id="grade-summary" aria-label="Ringkasan harga per grade">
             <h2 className="lot-steps-title">Harga per grade</h2>
+            <p className="hint">Rata-rata tertimbang berdasarkan stok dengan harga tercatat. Harga tiap penerimaan dapat berbeda; stok tanpa harga tidak dianggap gratis.</p>
             {gradeRows.length ? (
               <div className="grade-summary-grid">
                 {gradeRows.map((row) => (
@@ -185,8 +187,7 @@ export default async function PengepulProdukPage({ params }: PageProps) {
                       Grade {row.grade}
                     </span>
                     <span className="grade-summary-price">
-                      Rp{money.format(Math.round(row.pricePerKg))}
-                      <small>/kg</small>
+                      {row.pricePerKg === null ? "Harga belum tersedia" : <>Rp{money.format(Math.round(row.pricePerKg))}<small>/kg</small></>}
                     </span>
                     <small>
                       {row.quantity.toFixed(1)} kg · {row.receipts} penerimaan
@@ -295,10 +296,10 @@ export default async function PengepulProdukPage({ params }: PageProps) {
                                 </div>
                               ) : null}
                               <footer className="receipt-foot">
-                                <TambahRiwayatButton
+                                {!detail.deletedAt ? <TambahRiwayatButton
                                   productId={detail.id}
                                   subProductId={sub.id}
-                                />
+                                /> : null}
                                 <Link
                                   href={`/trace/${sub.barcode}`}
                                   className="link-button"

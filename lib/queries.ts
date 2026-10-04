@@ -35,6 +35,7 @@ import type {
   SubProduct,
   User,
   HistoryKind,
+  CatalogProduct,
 } from "./types";
 
 export type RecentActivity =
@@ -84,6 +85,19 @@ export async function listOrderViews(): Promise<OrderView[]> {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data as OrderViewRow[]).map(toOrderView);
+}
+
+/** Legacy lots identify their seller by organization, not by product owner ID. */
+export async function listSellerOrderViews(organization: string): Promise<OrderView[]> {
+  const { data, error } = await supabase().from("order_views").select("*").eq("seller", organization).order("created_at", { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as OrderViewRow[]).map(toOrderView);
+}
+
+export async function listBuyerOrderViews(userId: string): Promise<OrderView[]> {
+  const { data, error } = await supabase().from("order_views").select("*").eq("buyer_user_id", userId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as OrderViewRow[]).map(toOrderView);
 }
 
 export async function getLot(lotId: string): Promise<Lot | null> {
@@ -243,7 +257,8 @@ export async function listProducts(): Promise<Product[]> {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data as ProductRow[]).map(toProduct);
+  // Keep reads compatible before the archive migration; missing deleted_at is active.
+  return (data as ProductRow[]).map(toProduct).filter((product) => !product.deletedAt);
 }
 
 export async function getProduct(id: string): Promise<Product | null> {
@@ -328,6 +343,27 @@ export async function listCatalogProducts(): Promise<ProductDetail[]> {
     })
   );
 }
+
+/** Buyer cards need stock totals, not each source's documents and coordinates. */
+export async function listBuyerCatalogProducts(): Promise<CatalogProduct[]> {
+  const products = await listProducts();
+  if (!products.length) return [];
+  const { data, error } = await supabase().from("sub_products")
+    .select("product_id,quantity,price").in("product_id", products.map((product) => product.id));
+  if (error) throw error;
+  const quantities = new Map<string, number>();
+  const priceRanges = new Map<string, { min: number; max: number }>();
+  for (const row of data ?? []) {
+    quantities.set(row.product_id, (quantities.get(row.product_id) ?? 0) + Number(row.quantity));
+    const price = Number(row.price);
+    if (Number(row.quantity) > 0 && Number.isFinite(price) && price > 0) {
+      const range = priceRanges.get(row.product_id);
+      priceRanges.set(row.product_id, { min: Math.min(range?.min ?? price, price), max: Math.max(range?.max ?? price, price) });
+    }
+  }
+  return products.map((product) => ({ ...product, available: quantities.get(product.id) ?? 0,
+    minPrice: priceRanges.get(product.id)?.min ?? null, maxPrice: priceRanges.get(product.id)?.max ?? null }));
+}
 export async function getProductDetail(id: string): Promise<ProductDetail | null> {
   const product = await getProduct(id);
   if (!product) return null;
@@ -364,21 +400,18 @@ export async function listProductDetailsByPengepul(pengepulId: string): Promise<
 
 /**
  * Aktivitas terbaru gabungan event product_history (untuk pengepul ini)
- * dan orders (semua, tampilan ringkas). Terbaru dulu.
+ * untuk pengepul ini. Pesanan legacy tidak dicampur dengan ledger produk baru.
  */
 export async function listRecentActivity(
   pengepulId: string,
   limit = 8
 ): Promise<RecentActivity[]> {
-  const [eventsRes, orders] = await Promise.all([
-    supabase()
+  const eventsRes = await supabase()
       .from("product_history")
       .select("id, product_id, actor, kind, quantity_delta, note, created_at, products!inner(name, pengepul_id)")
       .eq("products.pengepul_id", pengepulId)
       .order("created_at", { ascending: false })
-      .limit(limit),
-    listOrderViews(),
-  ]);
+      .limit(limit);
   if (eventsRes.error) throw eventsRes.error;
   type EventRow = {
     id: string;
@@ -404,17 +437,7 @@ export async function listRecentActivity(
       note: row.note,
     };
   });
-  const orderItems: RecentActivity[] = orders.map((order) => ({
-    kind: "order",
-    id: order.id,
-    createdAt: order.createdAt,
-    product: order.product,
-    seller: order.seller,
-    buyer: order.buyer,
-    quantity: order.quantity,
-    status: order.status,
-  }));
-  return [...events, ...orderItems]
+  return events
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
     .slice(0, limit);
 }
@@ -457,25 +480,35 @@ export async function insertSubProduct(sub: SubProduct): Promise<void> {
   });
   if (error) throw error;
 }
-export async function deleteProduct(id: string): Promise<boolean> {
-  const { data, error } = await supabase().from("products").delete().eq("id", id).select("id");
+export async function setProductArchived(id: string, actorId: string, archived: boolean): Promise<void> {
+  const { error } = await supabase().rpc("set_product_archived", {
+    p_product_id: id, p_actor_id: actorId, p_archived: archived,
+  });
   if (error) throw error;
-  return (data?.length ?? 0) > 0;
 }
 
-/** Update atomik kuantitas sub-product; row lock akan menolak oversell. */
-export async function updateSubProductQuantity(
-  id: string,
-  delta: number
-): Promise<boolean> {
-  if (delta === 0) return true;
-  const { data, error } = await supabase()
-    .from("sub_products")
-    .update({ quantity: Math.max(0, delta) })
-    .eq("id", id)
-    .select("id");
+/** Quantity and its ledger entry commit together under the same row lock. */
+export async function recordStockEvent(event: ProductHistory): Promise<void> {
+  const { error } = await supabase().rpc("record_stock_event", {
+    p_event_id: event.id, p_product_id: event.productId, p_sub_product_id: event.subProductId,
+    p_actor_id: event.actorId, p_delta: event.quantityDelta, p_note: event.note,
+  });
   if (error) throw error;
-  return (data?.length ?? 0) > 0;
+}
+
+/** Create a product and all its source receipts/history in one DB transaction. */
+export async function createProductReceipts(product: Product | null, productId: string, actorId: string,
+  receipts: Array<{ sub: SubProduct; historyId: string; note: string | null }>): Promise<void> {
+  const { error } = await supabase().rpc("create_product_receipts", {
+    p_actor_id: actorId, p_product_id: productId,
+    p_product: product ? { id: product.id, name: product.name, type: product.type, price: product.price, coret: product.coret,
+      size: product.size, image: product.image, promo: product.promo, pengepul_id: actorId, organization: product.organization,
+      location: product.location, barcode: product.barcode, created_at: product.createdAt } : null,
+    p_receipts: receipts.map(({ sub, historyId, note }) => ({ id: sub.id, name: sub.name, fisherman_name: sub.fishermanName,
+      quantity: sub.quantity, price: sub.price, min_order_kg: sub.minOrderKg, grade: sub.grade, quality: sub.quality,
+      geo_lat: sub.geoLat, geo_lng: sub.geoLng, barcode: sub.barcode, history_id: historyId, note })),
+  });
+  if (error) throw error;
 }
 
 export async function getSubProduct(id: string): Promise<SubProduct | null> {

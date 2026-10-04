@@ -13,7 +13,7 @@ interface Props {
   lockedProductName?: string;
   actorName?: string;
   productLabel?: string;
-  onSaved?: (detail: ProductDetail) => void;
+  onSaved?: (detail: ProductDetail, warning?: string) => void;
 }
 
 const PACKAGING_OPTIONS = [
@@ -54,8 +54,8 @@ export default function AddFishermanForm({
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLat(String(pos.coords.latitude));
-        setLng(String(pos.coords.longitude));
+        setLat(pos.coords.latitude.toFixed(6));
+        setLng(pos.coords.longitude.toFixed(6));
       },
       () => setError("Tidak bisa mendapatkan lokasi."),
       { enableHighAccuracy: true, timeout: 8000 }
@@ -107,17 +107,15 @@ export default function AddFishermanForm({
       setPrice("");
       setMinOrderKg("1");
       setGrade("");
-      setLat("");
-      setLng("");
       setTemperature("");
       setDispatch("");
       setNote("");
       setDocs([]);
       setSuccess("Sumber nelayan berhasil ditambahkan.");
       const savedDetail = res.detail;
-      setTimeout(() => {
-        if (savedDetail) onSaved?.(savedDetail);
-      }, 1500);
+      if (savedDetail) onSaved?.(savedDetail, res.warning);
+    } catch {
+      setError("Penerimaan belum dapat disimpan. Periksa koneksi lalu coba lagi.");
     } finally {
       setBusy(false);
     }
@@ -271,7 +269,8 @@ export default function AddFishermanForm({
         }
         docs={docs}
         onChange={setDocs}
-        helperText="Aktifkan GPS lalu ambil foto lewat tombol kamera. Foto otomatis dibakar stempel waktu, lokasi, dan identitas pengepul."
+        onCoords={(coords) => { setLat((value) => value || coords.lat.toFixed(6)); setLng((value) => value || coords.lng.toFixed(6)); }}
+        helperText="Lokasi pencatatan mengisi koordinat yang masih kosong. Periksa kembali lokasi asal sebelum menyimpan."
       />
       <label>
         Catatan event <small>(opsional)</small>

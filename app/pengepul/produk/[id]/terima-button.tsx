@@ -16,6 +16,7 @@ interface Props {
 
 export default function TerimaButton({ productId, productName, productType, productSize, actorName }: Props) {
   const [open, setOpen] = useState(false);
+  const [notice, setNotice] = useState("");
   const router = useRouter();
 
   return (
@@ -30,13 +31,15 @@ export default function TerimaButton({ productId, productName, productType, prod
             actorName={actorName}
             productLabel={`${productName} · ${productType} · ${productSize}`}
             lockedProductName={`${productName} · ${productType} · ${productSize}`}
-            onSaved={() => {
+            onSaved={(_, warning) => {
+              setNotice(warning || "Penerimaan tersimpan.");
               setOpen(false);
               router.refresh();
             }}
           />
         </Modal>
       ) : null}
+      {notice ? <p className="hint" role="status">{notice}</p> : null}
     </>
   );
 }

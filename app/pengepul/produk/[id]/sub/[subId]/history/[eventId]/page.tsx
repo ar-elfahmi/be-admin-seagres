@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(iso).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" });
 }
 
 function isImage(mime: string): boolean {
@@ -164,10 +165,13 @@ export default async function PengepulEventPage({ params }: PageProps) {
                       {isImage(doc.mime) ? (
                         <small>
                           <a href={doc.url} target="_blank" rel="noreferrer">
-                            <img
+                            <Image
                               src={doc.url}
                               alt={doc.filename}
-                              style={{ maxWidth: 200, borderRadius: 8, marginTop: 6 }}
+                              width={200}
+                              height={150}
+                              unoptimized
+                              className="mt-2 h-auto max-w-full rounded-lg"
                             />
                           </a>
                         </small>

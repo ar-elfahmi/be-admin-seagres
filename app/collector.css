@@ -1,0 +1,61 @@
+@reference "./globals.css";
+
+/* Tailwind components isolated from the buyer shell and legacy public pages. */
+.collector-dialog {
+  @apply fixed inset-0 m-auto w-[calc(100%-32px)] max-w-[680px] max-h-[calc(100dvh-48px)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl;
+}
+.collector-dialog::backdrop { background: rgb(15 35 65 / .48); backdrop-filter: blur(3px); }
+.collector-dialog .modal-head { @apply sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 py-5; }
+.collector-dialog .modal-head h2 { @apply m-0 text-xl font-bold leading-snug; }
+.collector-dialog .modal-head .icon-button { @apply inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg; }
+.collector-dialog > .form, .collector-dialog > .profile-panel, .collector-dialog > .orders-panel { @apply grid gap-5 p-6; }
+.collector-dialog .form label, .pengepul-shell .form label { @apply grid min-w-0 gap-2 text-sm leading-relaxed; }
+.collector-dialog .form-grid, .pengepul-shell .form .form-grid { @apply grid grid-cols-2 gap-4; }
+.collector-dialog .form input:not([type="checkbox"]), .collector-dialog .form select, .collector-dialog .form textarea,
+.pengepul-shell .form input:not([type="checkbox"]), .pengepul-shell .form select, .pengepul-shell .form textarea {
+  @apply w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-[#1e5aa8] focus:ring-2 focus:ring-blue-100;
+}
+.collector-dialog .form .check-line, .pengepul-shell .form .check-line { @apply flex items-start gap-3; }
+.collector-dialog input[type="checkbox"], .pengepul-shell .form input[type="checkbox"] { @apply mt-1 h-4 w-4 shrink-0 accent-[#1e5aa8]; }
+.collector-dialog .primary-button, .pengepul-shell .form .primary-button { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1e5aa8] px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60; }
+.collector-dialog .link-button, .pengepul-shell .form .link-button { @apply inline-flex min-h-11 items-center justify-center gap-2 px-2 text-[#1e5aa8]; }
+.collector-dialog .quality-block, .collector-dialog .fishermen-block, .pengepul-shell .form .quality-block { @apply grid min-w-0 gap-4 rounded-xl border border-slate-200 p-4; }
+.collector-dialog .fisherman-row { @apply grid min-w-0 gap-4 rounded-xl border border-slate-200 p-4; }
+.collector-dialog .sell-banner p { @apply grid min-w-0 gap-1; }
+.collector-dialog .sell-banner > svg { @apply shrink-0; }
+.pengepul-shell .verified { @apply inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs text-[#1e5aa8]; }
+.pengepul-shell .lot-stock { @apply inline-flex items-center gap-2; }
+.collector-dialog .verified-capture, .pengepul-shell .verified-capture { @apply grid min-w-0 gap-3; }
+.collector-dialog .capture-status, .pengepul-shell .capture-status { @apply flex flex-wrap items-center gap-2 rounded-lg bg-blue-50 p-3 text-sm text-[#1e5aa8]; }
+.collector-dialog .capture-status > svg, .pengepul-shell .capture-status > svg { @apply h-5 w-5 shrink-0; }
+.collector-dialog .capture-banner, .pengepul-shell .capture-banner { @apply flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4; }
+.collector-dialog .capture-banner p, .pengepul-shell .capture-banner p { @apply grid gap-2 text-sm leading-relaxed; }
+.collector-dialog .verified-doc, .pengepul-shell .verified-doc { @apply flex flex-wrap gap-3; }
+.collector-dialog .verified-doc-meta, .pengepul-shell .verified-doc-meta { @apply grid min-w-0 flex-1 gap-1 break-words; }
+.collector-dialog .order-item { @apply grid gap-2 rounded-xl border border-slate-200 p-4; }
+.collector-dialog .order-item strong, .collector-dialog .order-item span { @apply block; }
+.collector-dialog .profile-panel dl { @apply grid gap-3; }
+.collector-dialog .profile-panel dl div { @apply grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-4 border-b border-slate-100 pb-3; }
+.collector-dialog .profile-panel dd { @apply m-0 break-words; }
+.collector-dialog .sell-source-card dl div { @apply grid grid-cols-2 gap-4; }
+.collector-dialog :focus-visible { @apply outline-2 outline-offset-2 outline-[#1e5aa8]; }
+.pengepul-shell .trend-foot { @apply flex flex-wrap items-center justify-between gap-x-5 gap-y-2; }
+.pengepul-shell .top-list li { @apply grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3; }
+.pengepul-shell .top-name { @apply min-w-0 break-words; }
+.pengepul-shell .archive-tabs { @apply mb-4 flex flex-wrap gap-2; }
+.pengepul-shell .archive-tabs button { @apply inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600; }
+.pengepul-shell .archive-tabs button[aria-pressed="true"] { @apply border-[#1e5aa8] bg-blue-50 text-[#1e5aa8]; }
+.pengepul-shell .archive-tabs button svg, .pengepul-shell .archive-chip svg { @apply h-4 w-4; }
+.pengepul-shell .archive-tabs span { @apply rounded-md bg-slate-100 px-2 py-0.5 text-xs; }
+.pengepul-shell .archive-note { @apply mb-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-relaxed text-[#1e5aa8]; }
+.pengepul-shell .archive-chip { @apply inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600; }
+.pengepul-shell .pcr-menu-archive { @apply flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-sm font-semibold text-[#1e5aa8] hover:bg-blue-50; }
+.pengepul-shell .pcr-menu-archive.solid { @apply bg-[#1e5aa8] text-white hover:bg-blue-800 disabled:opacity-60; }
+.pengepul-shell .pcr-menu-archive svg { @apply h-4 w-4 shrink-0; }
+.pengepul-shell .toast { @apply flex max-w-[calc(100vw-32px)] items-center gap-3; }
+@media (max-width: 600px) {
+  .collector-dialog { @apply w-[calc(100%-24px)] max-h-[calc(100dvh-32px)]; }
+  .collector-dialog .modal-head { @apply px-5 py-4; }
+  .collector-dialog > .form, .collector-dialog > .profile-panel, .collector-dialog > .orders-panel { @apply p-5; }
+  .collector-dialog .form-grid, .pengepul-shell .form .form-grid { @apply grid-cols-1; }
+}
