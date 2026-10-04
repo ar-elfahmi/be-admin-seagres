@@ -539,6 +539,10 @@ export async function insertDocument(doc: {
   mime: string;
   kind: ProductHistory["documents"][number]["kind"];
   createdAt: string;
+  capturedAt: string | null;
+  capturedLat: number | null;
+  capturedLng: number | null;
+  capturedAccuracyM: number | null;
 }): Promise<void> {
   const { error } = await supabase().from("history_documents").insert({
     id: doc.id,
@@ -548,6 +552,10 @@ export async function insertDocument(doc: {
     mime: doc.mime,
     kind: doc.kind,
     created_at: doc.createdAt,
+    captured_at: doc.capturedAt,
+    captured_lat: doc.capturedLat,
+    captured_lng: doc.capturedLng,
+    captured_accuracy_m: doc.capturedAccuracyM,
   });
   if (error) throw error;
 }

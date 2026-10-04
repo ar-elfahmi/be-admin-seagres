@@ -318,6 +318,46 @@ interface ParsedFisherman {
   geoLat: number | null;
   geoLng: number | null;
   files: File[];
+  metas: DocumentMeta[];
+}
+
+function parseMetaArray(parsed: unknown): DocumentMeta[] {
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map((entry): DocumentMeta => {
+    if (!entry || typeof entry !== "object") {
+      return { capturedAt: null, capturedLat: null, capturedLng: null, capturedAccuracyM: null };
+    }
+    const obj = entry as Record<string, unknown>;
+    const num = (v: unknown) =>
+      typeof v === "number" && Number.isFinite(v) ? v : null;
+    const str = (v: unknown) => (typeof v === "string" && v ? v : null);
+    return {
+      capturedAt: str(obj.capturedAt),
+      capturedLat: num(obj.capturedLat),
+      capturedLng: num(obj.capturedLng),
+      capturedAccuracyM: num(obj.capturedAccuracyM),
+    };
+  });
+}
+
+function readDocumentMetas(formData: FormData, index: number): DocumentMeta[] {
+  const raw = formData.get(`documentsMeta[${index}]`);
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  try {
+    return parseMetaArray(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+function readDocumentMetasTopLevel(formData: FormData): DocumentMeta[] {
+  const raw = formData.get("documentsMeta");
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  try {
+    return parseMetaArray(JSON.parse(raw));
+  } catch {
+    return [];
+  }
 }
 
 function readFishermanRows(formData: FormData): ParsedFisherman[] {
@@ -344,6 +384,7 @@ function readFishermanRows(formData: FormData): ParsedFisherman[] {
         files.push(value as File);
       }
     }
+    const metas = readDocumentMetas(formData, i);
     rows.push({
       index: i,
       name,
@@ -361,6 +402,7 @@ function readFishermanRows(formData: FormData): ParsedFisherman[] {
       geoLat,
       geoLng,
       files,
+      metas,
     });
   }
   return rows;
@@ -386,13 +428,26 @@ async function uploadProductPhoto(formData: FormData): Promise<string | null> {
   return data.publicUrl;
 }
 
-async function uploadHistoryDocuments(files: File[], historyId: string): Promise<{
+interface DocumentMeta {
+  capturedAt: string | null;
+  capturedLat: number | null;
+  capturedLng: number | null;
+  capturedAccuracyM: number | null;
+}
+
+async function uploadHistoryDocuments(
+  files: File[],
+  historyId: string,
+  metas: DocumentMeta[]
+): Promise<{
   inserted: number;
   failures: string[];
 }> {
   let inserted = 0;
   const failures: string[] = [];
-  for (const file of files) {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const meta = metas[i] ?? null;
     const fileType = String(file.type || "");
     const ext = ACCEPT_IMAGES[fileType];
     if (!ext) {
@@ -401,6 +456,10 @@ async function uploadHistoryDocuments(files: File[], historyId: string): Promise
     }
     if (file.size > 6 * 1024 * 1024) {
       failures.push(`${file.name || "berkas"} lebih dari 6 MB`);
+      continue;
+    }
+    if (!meta || meta.capturedLat === null || meta.capturedLng === null) {
+      failures.push(`${file.name || "berkas"} tanpa koordinat GPS — ambil ulang lewat tombol kamera`);
       continue;
     }
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -422,6 +481,10 @@ async function uploadHistoryDocuments(files: File[], historyId: string): Promise
       mime: fileType,
       kind: ext === "pdf" ? "dokumen" : "foto",
       createdAt: new Date().toISOString(),
+      capturedAt: meta.capturedAt,
+      capturedLat: meta.capturedLat,
+      capturedLng: meta.capturedLng,
+      capturedAccuracyM: meta.capturedAccuracyM,
     });
     inserted++;
   }
@@ -555,7 +618,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
         createdAt: now.toISOString(),
       });
     }
-    const docResult = await uploadHistoryDocuments(row.files, subHistory.id);
+    const docResult = await uploadHistoryDocuments(row.files, subHistory.id, row.metas);
     if (docResult.failures.length) {
       console.warn("Dokumen gagal diunggah", docResult.failures);
     }
@@ -673,7 +736,7 @@ export async function addProductHistory(formData: FormData): Promise<AddProductH
       documentFiles.push(value as File);
     }
   }
-
+  const documentMetas = readDocumentMetasTopLevel(formData);
   const history: ProductHistory = {
     id: newId("HIS"),
     productId: product.id,
@@ -699,7 +762,7 @@ export async function addProductHistory(formData: FormData): Promise<AddProductH
       createdAt: history.createdAt,
     });
   }
-  await uploadHistoryDocuments(documentFiles, history.id);
+  await uploadHistoryDocuments(documentFiles, history.id, documentMetas);
 
   const detail = await getProductDetail(product.id);
   const products = await listProductDetailsByPengepul(user.id);
@@ -760,6 +823,7 @@ export async function addSubProductAction(
       documentFiles.push(value as File);
     }
   }
+  const documentMetas = readDocumentMetasTopLevel(formData);
   const note = String(formData.get("historyNote") || "").trim() || null;
 
   const now = new Date();
@@ -814,7 +878,7 @@ export async function addSubProductAction(
       createdAt: now.toISOString(),
     });
   }
-  await uploadHistoryDocuments(documentFiles, history.id);
+  await uploadHistoryDocuments(documentFiles, history.id, documentMetas);
 
   const detail = await getProductDetail(product.id);
   revalidatePath("/");
@@ -872,7 +936,7 @@ export async function addHistoryEventAction(
       documentFiles.push(value as File);
     }
   }
-
+  const documentMetas = readDocumentMetasTopLevel(formData);
   const now = new Date();
   const history: ProductHistory = {
     id: newId("HIS"),
@@ -899,8 +963,8 @@ export async function addHistoryEventAction(
       createdAt: now.toISOString(),
     });
   }
-  await uploadHistoryDocuments(documentFiles, history.id);
 
+  await uploadHistoryDocuments(documentFiles, history.id, documentMetas);
   const detail = await getProductDetail(product.id);
   revalidatePath("/");
   revalidatePath("/pengepul");

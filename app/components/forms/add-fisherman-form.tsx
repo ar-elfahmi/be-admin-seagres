@@ -1,26 +1,20 @@
 "use client";
 
-import { Plus, MapPin, X } from "lucide-react";
+import { Plus, MapPin } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { addSubProductAction } from "../../actions";
 import type { ProductDetail } from "../../../lib/types";
+import VerifiedPhotoCapture, {
+  type VerifiedDoc,
+} from "../verified-photo-capture";
 
 interface Props {
   productId: string;
   lockedProductName?: string;
+  actorName?: string;
+  productLabel?: string;
   onSaved?: (detail: ProductDetail) => void;
-}
-
-interface DocEntry {
-  id: string;
-  name: string;
-  size: number;
-  file: File;
-}
-
-function newDocId() {
-  return Math.random().toString(36).slice(2, 10);
 }
 
 const PACKAGING_OPTIONS = [
@@ -29,7 +23,13 @@ const PACKAGING_OPTIONS = [
   "Kemasan olahan tersegel",
   "Standar pengepul",
 ];
-export default function AddFishermanForm({ productId, lockedProductName, onSaved }: Props) {
+export default function AddFishermanForm({
+  productId,
+  lockedProductName,
+  actorName,
+  productLabel,
+  onSaved,
+}: Props) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [fishermanName, setFishermanName] = useState("");
@@ -44,7 +44,7 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
   const [temperature, setTemperature] = useState("");
   const [dispatch, setDispatch] = useState("");
   const [note, setNote] = useState("");
-  const [docs, setDocs] = useState<DocEntry[]>([]);
+  const [docs, setDocs] = useState<VerifiedDoc[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,21 +61,6 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
       () => setError("Tidak bisa mendapatkan lokasi."),
       { enableHighAccuracy: true, timeout: 8000 }
     );
-  }
-
-  function addDocs(files: FileList | null) {
-    if (!files) return;
-    const next: DocEntry[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files.item(i);
-      if (!file) continue;
-      next.push({ id: newDocId(), name: file.name, size: file.size, file });
-    }
-    setDocs((current) => current.concat(next));
-  }
-
-  function removeDoc(id: string) {
-    setDocs((current) => current.filter((entry) => entry.id !== id));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -100,8 +85,15 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
     data.set("qualityDispatch", dispatch);
     if (note) data.set("historyNote", note);
     for (const entry of docs) {
-      data.append("documents[]", entry.file);
+      data.append("documents[]", entry.blob, entry.filename);
     }
+    const metas = docs.map((entry) => ({
+      capturedAt: entry.capturedAt,
+      capturedLat: entry.capturedLat,
+      capturedLng: entry.capturedLng,
+      capturedAccuracyM: entry.capturedAccuracyM,
+    }));
+    data.set("documentsMeta", JSON.stringify(metas));
     setBusy(true);
     try {
       const res = await addSubProductAction(productId, data);
@@ -127,7 +119,6 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
       setBusy(false);
     }
   }
-
   return (
     <form className="form" onSubmit={submit}>
       {lockedProductName ? (
@@ -269,33 +260,15 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
       <button className="link-button" type="button" onClick={captureGeolocation}>
         <MapPin /> Ambil titik lokasi dari browser
       </button>
-      <label>
-        Dokumen pendukung (foto / PDF)
-        <input
-          className="file-input"
-          type="file"
-          multiple
-          accept="image/*,application/pdf"
-          onChange={(e) => addDocs(e.currentTarget.files)}
-        />
-      </label>
-      {docs.length ? (
-        <ul className="file-list">
-          {docs.map((entry) => (
-            <li key={entry.id}>
-              {entry.name} <small>{(entry.size / 1024).toFixed(1)} KB</small>
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => removeDoc(entry.id)}
-                aria-label={`Hapus ${entry.name}`}
-              >
-                <X /> hapus
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <VerifiedPhotoCapture
+        actorName={actorName ?? "Pengepul"}
+        productLabel={
+          (productLabel ?? lockedProductName ?? name) || "Produk pengepul"
+        }
+        docs={docs}
+        onChange={setDocs}
+        helperText="Aktifkan GPS lalu ambil foto lewat tombol kamera. Foto otomatis dibakar stempel waktu, lokasi, dan identitas pengepul."
+      />
       <label>
         Catatan event <small>(opsional)</small>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="ex: Hasil tangkapan 2 April" rows={3} />

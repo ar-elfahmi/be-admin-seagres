@@ -150,6 +150,10 @@ export type DocumentRow = {
   mime: string;
   kind: DocumentKind;
   created_at: string;
+  captured_at: string | null;
+  captured_lat: number | string | null;
+  captured_lng: number | string | null;
+  captured_accuracy_m: number | string | null;
 };
 
 const num = (value: string | number): number => Number(value);
@@ -333,6 +337,13 @@ export function toDocument(row: DocumentRow): HistoryDocument {
     mime: row.mime,
     kind: row.kind,
     createdAt: row.created_at,
+    capturedAt: row.captured_at,
+    capturedLat: row.captured_lat === null || row.captured_lat === undefined ? null : Number(row.captured_lat),
+    capturedLng: row.captured_lng === null || row.captured_lng === undefined ? null : Number(row.captured_lng),
+    capturedAccuracyM:
+      row.captured_accuracy_m === null || row.captured_accuracy_m === undefined
+        ? null
+        : Number(row.captured_accuracy_m),
   };
 }
 

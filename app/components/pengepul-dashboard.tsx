@@ -45,6 +45,7 @@ import type {
 import type { RecentActivity } from "../../lib/queries";
 import SeagresLogo from "./seagres-logo";
 import AddFishermanForm from "./forms/add-fisherman-form";
+import VerifiedPhotoCapture, { type VerifiedDoc } from "./verified-photo-capture";
 import MarketFooter from "./market-footer";
 interface PengepulDashboardProps {
   user: PublicUser;
@@ -127,6 +128,7 @@ interface FishermanRowState {
   geoLat: string;
   geoLng: string;
   files: File[];
+  docs: VerifiedDoc[];
 }
 
 const PACKAGING_OPTIONS = [
@@ -152,6 +154,7 @@ function newFishermanRow(): FishermanRowState {
     geoLat: "",
     geoLng: "",
     files: [],
+    docs: [],
   };
 }
 
@@ -182,9 +185,22 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
       data.set(`qualityPackaging[${index}]`, row.qualityPackaging);
       data.set(`qualityTemperature[${index}]`, row.qualityTemperature);
       data.set(`qualityDispatch[${index}]`, row.qualityDispatch);
+      for (const entry of row.docs) {
+        data.append(`documents[${index}]`, entry.blob, entry.filename);
+      }
+      data.set(
+        `documentsMeta[${index}]`,
+        JSON.stringify(
+          row.docs.map((entry) => ({
+            capturedAt: entry.capturedAt,
+            capturedLat: entry.capturedLat,
+            capturedLng: entry.capturedLng,
+            capturedAccuracyM: entry.capturedAccuracyM,
+          }))
+        )
+      );
       data.set(`geoLat[${index}]`, row.geoLat);
       data.set(`geoLng[${index}]`, row.geoLng);
-      row.files.forEach((file) => data.append(`documents[${index}]`, file));
     });
     onSubmit(data);
   }
@@ -381,51 +397,36 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
                     <option>Standar pengepul</option>
                   </select>
                 </label>
-                <label>
-                  Suhu penyimpanan
-                  <input
-                    type="text"
-                    value={row.qualityTemperature}
-                    onChange={(event) => updateRow(row.id, { qualityTemperature: event.target.value })}
-                    placeholder="ex: 0–4 °C"
-                  />
-                </label>
-              </div>
               <label>
-                Metode pengiriman ke pembeli
+                Suhu penyimpanan
                 <input
                   type="text"
-                  value={row.qualityDispatch}
-                  onChange={(event) => updateRow(row.id, { qualityDispatch: event.target.value })}
-                  placeholder="ex: Mobil box berpendingin"
+                  value={row.qualityTemperature}
+                  onChange={(event) => updateRow(row.id, { qualityTemperature: event.target.value })}
+                  placeholder="ex: 0–4 °C"
                 />
               </label>
-            </fieldset>
-            <button className="link-button" type="button" onClick={() => captureGeolocation(row.id)}>
-              <MapPin /> Ambil titik lokasi dari browser
-            </button>
+            </div>
             <label>
-              Dokumen pendukung (foto / PDF)
+              Metode pengiriman ke pembeli
               <input
-                className="file-input"
-                type="file"
-                multiple
-                accept="image/*,application/pdf"
-                onChange={(event) => {
-                  const files = Array.from(event.currentTarget.files ?? []);
-                  updateRow(row.id, { files: row.files.concat(files) } as Partial<FishermanRowState>);
-                }}
+                type="text"
+                value={row.qualityDispatch}
+                onChange={(event) => updateRow(row.id, { qualityDispatch: event.target.value })}
+                placeholder="ex: Mobil box berpendingin"
               />
             </label>
-            {row.files.length ? (
-              <ul className="file-list">
-                {row.files.map((file, i) => (
-                  <li key={`${file.name}-${i}`}>
-                    {file.name} <small>{(file.size / 1024).toFixed(1)} KB</small>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+          </fieldset>
+          <button className="link-button" type="button" onClick={() => captureGeolocation(row.id)}>
+            <MapPin /> Ambil titik lokasi dari browser
+          </button>
+          <VerifiedPhotoCapture
+            actorName="Pengepul"
+            productLabel={`Nelayan #${index + 1}`}
+            docs={row.docs}
+            onChange={(docs) => updateRow(row.id, { docs })}
+            helperText="Aktifkan GPS lalu ambil foto lewat tombol kamera. Foto otomatis dibakar stempel waktu, lokasi, dan identitas pengepul."
+          />
           </div>
         ))}
         <button className="link-button" type="button" onClick={addRow}>
@@ -756,7 +757,7 @@ function ProductCard({ product, onDeleted, onSold, onReceived }: ProductCardProp
       ) : null}
       {receiveOpen ? (
         <Modal title={`Terima — ${product.name}`} onClose={() => setReceiveOpen(false)}>
-          <AddFishermanForm productId={product.id} lockedProductName={`${product.name} · ${product.type} · ${product.size}`} onSaved={(detail) => { onReceived(detail); setReceiveOpen(false); }} />
+          <AddFishermanForm productId={product.id} actorName={product.organization} productLabel={`${product.name} · ${product.type} · ${product.size}`} lockedProductName={`${product.name} · ${product.type} · ${product.size}`} onSaved={(detail) => { onReceived(detail); setReceiveOpen(false); }} />
         </Modal>
       ) : null}
     </article>
@@ -1032,7 +1033,6 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
             </div>
           )}
         </section>
-
         <MarketFooter
           tagline="Dasbor pengepul · agregasi & telusur per nelayan."
           groups={[

@@ -161,6 +161,10 @@ export interface HistoryDocument {
   mime: string;
   kind: DocumentKind;
   createdAt: string;
+  capturedAt: string | null;
+  capturedLat: number | null;
+  capturedLng: number | null;
+  capturedAccuracyM: number | null;
 }
 
 export interface ProductHistory {

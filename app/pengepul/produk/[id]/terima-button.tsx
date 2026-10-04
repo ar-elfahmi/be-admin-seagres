@@ -11,9 +11,10 @@ interface Props {
   productName: string;
   productType: string;
   productSize: string;
+  actorName?: string;
 }
 
-export default function TerimaButton({ productId, productName, productType, productSize }: Props) {
+export default function TerimaButton({ productId, productName, productType, productSize, actorName }: Props) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -26,6 +27,8 @@ export default function TerimaButton({ productId, productName, productType, prod
         <Modal title={`Terima — ${productName}`} onClose={() => setOpen(false)}>
           <AddFishermanForm
             productId={productId}
+            actorName={actorName}
+            productLabel={`${productName} · ${productType} · ${productSize}`}
             lockedProductName={`${productName} · ${productType} · ${productSize}`}
             onSaved={() => {
               setOpen(false);

@@ -169,6 +169,7 @@ export default async function PengepulProdukPage({ params }: PageProps) {
                 productName={detail.name}
                 productType={detail.type}
                 productSize={detail.size}
+                actorName={detail.organization}
               />
             </div>
           </div>
