@@ -102,6 +102,9 @@ export default async function ProdukPage({ params }: PageProps) {
                           : "lokasi umum"}
                       </small>
                     </span>
+                    <Link href={`/trace/${sub.barcode}`} className="link-button">
+                      <QrCode aria-hidden="true" /> Kartu telusur
+                    </Link>
                   </li>
                 ))}
               </ul>

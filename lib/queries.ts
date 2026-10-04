@@ -452,6 +452,7 @@ export async function insertSubProduct(sub: SubProduct): Promise<void> {
     grade: sub.grade ?? null,
     min_order_kg: sub.minOrderKg,
     quality: sub.quality ?? null,
+    barcode: sub.barcode,
     created_at: sub.createdAt,
   });
   if (error) throw error;
@@ -486,7 +487,15 @@ export async function getSubProduct(id: string): Promise<SubProduct | null> {
   if (error) throw error;
   return data ? toSubProduct(data as SubProductRow) : null;
 }
-
+export async function findSubProductByBarcode(barcode: string): Promise<SubProduct | null> {
+  const { data, error } = await supabase()
+    .from("sub_products")
+    .select("*")
+    .eq("barcode", barcode)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toSubProduct(data as SubProductRow) : null;
+}
 export async function insertHistory(event: ProductHistory): Promise<void> {
   const { error } = await supabase().from("product_history").insert({
     id: event.id,

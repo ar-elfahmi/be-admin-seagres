@@ -8,20 +8,16 @@ import {
   MapPin,
   Package,
   Scale,
-  Star,
   Store,
   UserRound,
 } from "lucide-react";
 import { currentUser } from "@/lib/session";
 import { getProductDetail } from "@/lib/queries";
 import SeagresLogo from "@/app/components/seagres-logo";
-import TraceCard from "@/app/components/trace-card";
 import TerimaButton from "./terima-button";
+import TraceCard from "@/app/components/trace-card";
+import TambahRiwayatButton from "./tambah-riwayat-button";
 import { HISTORY_STAGE_LABELS, type ProductDetail, type ProductHistory } from "@/lib/types";
-
-function isLocalAsset(src: string): boolean {
-  return src.startsWith("/products/") || src.startsWith("/uploads/");
-}
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +25,6 @@ interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ show?: string }>;
 }
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const detail = await getProductDetail(id);
@@ -41,6 +36,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 const money = new Intl.NumberFormat("id-ID");
+
+function isLocalAsset(src: string): boolean {
+  return src.startsWith("/products/") || src.startsWith("/uploads/");
+}
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
@@ -209,6 +208,13 @@ export default async function PengepulProdukPage({ params }: PageProps) {
                                   </ul>
                                 </div>
                               ) : null}
+                              <footer className="receipt-foot">
+                                <TambahRiwayatButton productId={detail.id} subProductId={sub.id} />
+                                <Link href={`/trace/${sub.barcode}`} className="link-button" target="_blank">
+                                  Lihat kartu telusur
+                                </Link>
+                              </footer>
+                              <TraceCard barcode={sub.barcode} productName={sub.name || sub.fishermanName} url={`/trace/${sub.barcode}`} compact />
                             </li>
                           );
                         })}
@@ -222,31 +228,6 @@ export default async function PengepulProdukPage({ params }: PageProps) {
             )}
           </section>
 
-          <section className="trace-history">
-            <h2 className="lot-steps-title">
-              <Star aria-hidden="true" /> Riwayat agregat ({detail.history.length})
-            </h2>
-            {detail.history.length ? (
-              <ol className="trace-steps">
-                {detail.history.map((event) => (
-                  <li key={event.id}>
-                    <b>{event.stage ? HISTORY_STAGE_LABELS[event.stage] : event.kind}</b>
-                    <span>
-                      {formatDateTime(event.createdAt)} · oleh {event.actor}
-                      {event.note ? ` · ${event.note}` : ""}
-                      {event.quantityDelta !== 0
-                        ? ` · Δ ${event.quantityDelta > 0 ? "+" : ""}${event.quantityDelta.toFixed(1)} kg`
-                        : ""}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p>Belum ada event tercatat.</p>
-            )}
-          </section>
-
-          <TraceCard barcode={detail.barcode} productName={detail.name} url={`/produk/${detail.id}`} />
         </div>
       </article>
 

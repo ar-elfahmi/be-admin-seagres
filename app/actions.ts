@@ -521,6 +521,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
       unit: "kg",
       geoLat: row.geoLat,
       geoLng: row.geoLng,
+      barcode: makeBarcode(subId, now),
       createdAt: now.toISOString(),
     };
     await insertSubProduct(sub);
@@ -768,6 +769,7 @@ export async function addSubProductAction(
     unit: "kg",
     geoLat,
     geoLng,
+    barcode: makeBarcode(subId, now),
     createdAt: now.toISOString(),
   };
   try {

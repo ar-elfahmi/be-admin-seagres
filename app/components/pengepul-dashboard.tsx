@@ -10,6 +10,8 @@ import {
   Clock,
   Ellipsis,
   Eye,
+  Home,
+  LayoutGrid,
   ListOrdered,
   LogOut,
   MapPin,
@@ -24,6 +26,7 @@ import {
   Trash2,
   TrendingUp,
   Truck,
+  UserRound,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -744,6 +747,14 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
     router.push("/");
   }
 
+  function scrollToTop() {
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  }
+  function scrollToId(id: string) {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+
   return (
     <main className="app-shell pengepul-shell" id="top">
       <header className="dashboard-header">
@@ -777,7 +788,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
       </header>
 
       <div className="dashboard-body">
-        <section className="stat-strip">
+        <section className="stat-strip" id="dashboard-stats">
           <div className="stat-card">
             <Package aria-hidden="true" />
             <span className="stat-label">Produk aktif</span>
@@ -929,7 +940,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
           </button>
         </section>
 
-        <section className="product-grid">
+        <section className="product-grid" id="dashboard-products">
           {filtered.length ? (
             filtered.map((product) => (
               <ProductCard key={product.id} product={product} onDeleted={(id) => setList((cur) => cur.filter((p) => p.id !== id))} onSold={(products) => setList(products)} onReceived={(detail) => setList((cur) => cur.map((p) => (p.id === detail.id ? detail : p)))} />
@@ -1017,6 +1028,30 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
           </div>
         </Modal>
       ) : null}
+
+      <nav className="bottom-nav" aria-label="Navigasi seluler pengepul">
+        <button className="active" type="button" onClick={scrollToTop}>
+          <Home />
+          <span>Beranda</span>
+        </button>
+        <button type="button" onClick={() => scrollToId("dashboard-stats")}>
+          <LayoutGrid />
+          <span>Ringkasan</span>
+        </button>
+        <button type="button" className="bottom-sell" onClick={() => setModal("create")} aria-label="Tambah produk">
+          <Plus />
+          <span>Tambah</span>
+        </button>
+        <button type="button" onClick={() => setModal("orders")}>
+          <ShoppingCart />
+          <span>Pesanan</span>
+          {newOrders > 0 ? <i>{newOrders}</i> : null}
+        </button>
+        <button type="button" onClick={() => setModal("profile")}>
+          <UserRound />
+          <span>Akun</span>
+        </button>
+      </nav>
     </main>
   );
 }

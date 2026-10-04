@@ -9,9 +9,10 @@ interface TraceCardProps {
   barcode: string;
   productName: string;
   url: string;
+  compact?: boolean;
 }
 
-export default function TraceCard({ barcode, productName, url }: TraceCardProps) {
+export default function TraceCard({ barcode, productName, url, compact = false }: TraceCardProps) {
   const [qrUrl, setQrUrl] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -19,10 +20,9 @@ export default function TraceCard({ barcode, productName, url }: TraceCardProps)
     let cancelled = false;
     (async () => {
       try {
-        // QR scanner di HP butuh origin absolut; URL relatif akan gagal.
         const absolute = new URL(url, window.location.origin).toString();
         const data = await QRCodeLibrary.toDataURL(absolute, {
-          width: 220,
+          width: compact ? 120 : 220,
           margin: 1,
           color: { dark: "#1e5aa8", light: "#ffffff" },
         });
@@ -34,7 +34,7 @@ export default function TraceCard({ barcode, productName, url }: TraceCardProps)
     return () => {
       cancelled = true;
     };
-  }, [url]);
+  }, [url, compact]);
 
   function print(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,13 +48,19 @@ export default function TraceCard({ barcode, productName, url }: TraceCardProps)
   }
 
   return (
-    <form className="trace-card" onSubmit={print}>
+    <form className={compact ? "trace-card trace-card-compact" : "trace-card"} onSubmit={print}>
       <span className="trace-card-head">
-        <QrCode aria-hidden="true" /> Kartu telusur produk
+        <QrCode aria-hidden="true" /> Kartu telusur
       </span>
       <span className="trace-card-qr">
         {qrUrl ? (
-          <Image src={qrUrl} alt={`QR kartu telusur ${productName}`} width={140} height={140} unoptimized />
+          <Image
+            src={qrUrl}
+            alt={`QR kartu telusur ${productName}`}
+            width={compact ? 120 : 140}
+            height={compact ? 120 : 140}
+            unoptimized
+          />
         ) : (
           <span>Menyiapkan QR…</span>
         )}

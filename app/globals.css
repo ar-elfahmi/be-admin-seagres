@@ -2668,8 +2668,14 @@ a {
 .receipt-docs { border-top: 1px dashed var(--line); padding-top: 8px; font-size: 12px; }
 .receipt-docs > span { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; color: var(--ink); }
 .receipt-docs > span svg { width: 14px; height: 14px; }
-.receipt-docs ul { list-style: disc; margin: 6px 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.lot-price-wrap .primary-button { width: 100%; justify-content: center; }
+.receipt-foot { display: flex; flex-wrap: wrap; gap: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.receipt-event-form { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; background: #fff; }
+.receipt-event-form > header { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+.receipt-event-form label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.receipt-event-form input, .receipt-event-form select { padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); font: inherit; color: var(--ink); }
+.receipt-event-form .form-actions { display: flex; gap: 8px; }
+.trace-card-compact { max-width: 220px; padding: 10px; font-size: 12px; }
+.trace-card-compact .trace-card-qr img { width: 120px; height: 120px; }
 
 /* Pengepul shell: sembunyikan beberapa hero/grid dari storefront */
 .pengepul-shell .hero-grid { padding: 0; }
@@ -3010,6 +3016,55 @@ a {
 @media (max-width: 600px) {
   .top-list li, .orders-mini li { grid-template-columns: 1fr auto; }
   .top-list li .top-qty, .orders-mini li .order-product { grid-column: 1 / -1; }
+}
+
+/* ============== DASHBOARD PENGEPUL MOBILE NAV ============== */
+.pengepul-shell .bottom-nav { display: none; }
+@media (max-width: 720px) {
+  .pengepul-shell .bottom-nav { display: flex; }
+  .pengepul-shell { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .pengepul-shell .dashboard-header-inner {
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+  .pengepul-shell .dashboard-search { display: none; }
+  .pengepul-shell .dashboard-title h1 { font-size: 15px; }
+  .pengepul-shell .dashboard-title small { font-size: 11px; }
+  .pengepul-shell .dashboard-actions .header-pill { padding: 6px 10px; font-size: 11.5px; }
+  .pengepul-shell .dashboard-body { padding: 12px; gap: 14px; }
+  .pengepul-shell .stat-strip { grid-template-columns: 1fr 1fr; }
+  .pengepul-shell .action-bar { padding: 10px; gap: 8px; }
+  .pengepul-shell .filter-chips button { padding: 5px 10px; font-size: 11.5px; }
+  .pengepul-shell .add-product { width: 100%; justify-content: center; }
+  .pengepul-shell .dash-card { padding: 12px 14px; }
+}
+@media (max-width: 480px) {
+  .pengepul-shell .stat-strip { grid-template-columns: 1fr; }
+}
+
+.pengepul-shell .bottom-nav .bottom-sell span { display: inline; font-size: 10px; font-weight: 700; margin-top: 2px; }
+.pengepul-shell .bottom-nav .bottom-sell {
+  width: 56px;
+  height: 56px;
+  margin-top: -22px;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px;
+}
+.pengepul-shell .bottom-nav .bottom-sell svg { width: 20px; height: 20px; }
+.pengepul-shell .bottom-nav i {
+  position: absolute;
+  top: 2px;
+  right: 14px;
+  background: #b91c1c;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 1px 4px;
+  min-width: 16px;
+  text-align: center;
 }
 /* end dashboard responsive */
 /* end responsive */

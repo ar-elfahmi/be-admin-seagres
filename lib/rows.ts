@@ -116,6 +116,7 @@ export type SubProductRow = {
   grade: string | null;
   min_order_kg: string | number | null;
   quality: LotQuality | null;
+  barcode: string;
   created_at: string;
 };
 
@@ -290,6 +291,7 @@ export function toSubProduct(row: SubProductRow): SubProduct {
       temperature: null,
       dispatch: null,
     },
+    barcode: row.barcode,
     createdAt: row.created_at,
   };
 }

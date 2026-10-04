@@ -117,6 +117,7 @@ export interface SubProduct {
   minOrderKg: number;
   grade: ProductGrade | null;
   quality: LotQuality;
+  barcode: string;
   createdAt: string;
 }
 
