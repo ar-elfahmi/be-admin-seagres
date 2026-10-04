@@ -2793,12 +2793,14 @@ a {
 .price-chip { background: var(--surface-2, #eef3fb); color: var(--primary); }
 
 .pcr-actions { display: flex; gap: 6px; align-items: stretch; flex-wrap: wrap; width: 100%; padding-top: 10px; border-top: 1px dashed var(--line); }
-.pcr-actions .ghost, .pcr-actions .primary-mini { flex: 1 1 0; justify-content: center; min-width: 0; display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px; font-size: 12px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--line); background: #fff; cursor: pointer; color: var(--ink); white-space: nowrap; text-decoration: none; }
-.pcr-actions .ghost svg, .pcr-actions .primary-mini svg { width: 14px; height: 14px; flex: 0 0 14px; }
+.pcr-actions .ghost, .pcr-actions .primary-mini, .pcr-actions .sell-mini { flex: 1 1 0; justify-content: center; min-width: 0; display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px; font-size: 12px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--line); background: #fff; cursor: pointer; color: var(--ink); white-space: nowrap; text-decoration: none; }
+.pcr-actions .ghost svg, .pcr-actions .primary-mini svg, .pcr-actions .sell-mini svg { width: 14px; height: 14px; flex: 0 0 14px; }
 .pcr-actions .ghost:hover { border-color: var(--primary); color: var(--primary); }
 .pcr-actions .primary-mini { font-weight: 700; border-color: var(--primary); background: var(--primary); color: #fff; }
 .pcr-actions .primary-mini:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
-.pcr-actions .ghost:disabled, .pcr-actions .primary-mini:disabled { opacity: 0.6; cursor: not-allowed; }
+.pcr-actions .sell-mini { font-weight: 700; border-color: #d97706; background: #f59e0b; color: #fff; }
+.pcr-actions .sell-mini:hover:not(:disabled) { background: #d97706; border-color: #d97706; }
+.pcr-actions .ghost:disabled, .pcr-actions .primary-mini:disabled, .pcr-actions .sell-mini:disabled { opacity: 0.6; cursor: not-allowed; }
 .pcr-menu { position: absolute; top: 0; right: 0; }
 .pcr-kebab { width: 30px; height: 30px; color: var(--muted); }
 .pcr-kebab svg { width: 18px; height: 18px; }

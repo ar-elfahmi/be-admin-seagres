@@ -8,7 +8,7 @@ import {
   Check,
   ChevronRight,
   Clock,
-  EllipsisVertical,
+  Ellipsis,
   Eye,
   ListOrdered,
   LogOut,
@@ -580,8 +580,7 @@ function ProductCard({ product, onDeleted, onSold }: ProductCardProps) {
               setMenuOpen((v) => !v);
               setConfirmStep(0);
             }}
-          >
-            <EllipsisVertical />
+            <Ellipsis />
           </button>
           {menuOpen ? (
             <div className="pcr-menu-pop" role="menu">
@@ -621,13 +620,6 @@ function ProductCard({ product, onDeleted, onSold }: ProductCardProps) {
         >
           <Plus /> Terima
         </Link>
-        <Link
-          href={`/pengepul/produk/${product.id}`}
-          className="ghost"
-          aria-label={`Lihat detail ${product.name}`}
-        >
-          <Eye /> Detail
-        </Link>
         <button
           type="button"
           onClick={() => {
@@ -636,13 +628,20 @@ function ProductCard({ product, onDeleted, onSold }: ProductCardProps) {
             setError(null);
             setSellOpen(true);
           }}
-          className="ghost"
+          className="sell-mini"
           disabled={!product.subProducts.length}
           aria-label={`Jual ${product.name}`}
           title={product.subProducts.length ? undefined : "Belum ada sumber nelayan"}
         >
           <Minus /> Jual
         </button>
+        <Link
+          href={`/pengepul/produk/${product.id}`}
+          className="ghost"
+          aria-label={`Lihat detail ${product.name}`}
+        >
+          <Eye /> Detail
+        </Link>
       </div>
 
       {sellOpen ? (
