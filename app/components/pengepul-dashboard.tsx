@@ -512,7 +512,7 @@ function TrendChart({ series }: { series: number[] }) {
   const linePoints = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
   const areaPoints = `${padX},${baselineY} ${linePoints} ${(padX + (series.length - 1) * stepX).toFixed(1)},${baselineY}`;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tren penjualan Oktober 2026" preserveAspectRatio="none" className="trend-svg">
+    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tren penjualan Oktober 2026" className="trend-svg">
       <g className="trend-grid-y">
           {yTicks.map((tk) => {
             const y = padY + innerH - (tk / yMax) * innerH;
@@ -810,15 +810,6 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
             <div className="trend-chart-wrap">
               <TrendChart series={TREND_SERIES.Semua} />
             </div>
-            <ul className="trend-axis" aria-hidden="true">
-              {TREND_LABELS.map((label, idx) => (
-                <li key={label.code} className={idx === TREND_LABELS.length - 1 ? "is-current" : ""}>
-                  <span className="trend-axis-dot" />
-                  <span className="trend-axis-label">{label.code} · {label.range}</span>
-                  <span className="trend-axis-val">{TREND_SERIES.Semua[idx]} kg</span>
-                </li>
-              ))}
-            </ul>
             <footer className="trend-foot">
               <span>Total bulan ini {money.format(TREND_SERIES.Semua.reduce((a, b) => a + b, 0))} kg</span>
               <span className="trend-delta">+12% vs September</span>
