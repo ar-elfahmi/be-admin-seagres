@@ -2948,7 +2948,12 @@ a {
 .dashboard-grid-rows .trend-card { grid-column: 1 / -1; }
 .dashboard-grid-rows .top-card { grid-column: 1 / -1; }
 .dashboard-grid-rows .activity-card { grid-column: 1 / 2; }
-.dashboard-grid-rows .orders-card { grid-column: 2 / 3; }
+.dash-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
   flex-direction: column;
   gap: 10px;
   box-shadow: var(--shadow-sm);
