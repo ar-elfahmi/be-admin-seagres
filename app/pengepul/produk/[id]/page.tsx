@@ -3,11 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
-  ArrowUpRight,
   BadgeCheck,
+  FileText,
   MapPin,
   Package,
-  Plus,
   Scale,
   Star,
   Store,
@@ -17,8 +16,8 @@ import { currentUser } from "@/lib/session";
 import { getProductDetail } from "@/lib/queries";
 import SeagresLogo from "@/app/components/seagres-logo";
 import TraceCard from "@/app/components/trace-card";
-import AddFishermanForm from "@/app/components/forms/add-fisherman-form";
-import { HISTORY_STAGE_LABELS } from "@/lib/types";
+import TerimaButton from "./terima-button";
+import { HISTORY_STAGE_LABELS, type ProductDetail, type ProductHistory } from "@/lib/types";
 
 function isLocalAsset(src: string): boolean {
   return src.startsWith("/products/") || src.startsWith("/uploads/");
@@ -47,12 +46,33 @@ function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 }
 
-export default async function PengepulProdukPage({ params, searchParams }: PageProps) {
+function groupByFisherman(detail: ProductDetail) {
+  const map = new Map<string, { subs: typeof detail.subProducts; events: ProductHistory[] }>();
+  for (const sub of detail.subProducts) {
+    const key = sub.fishermanName.trim() || "(tanpa nama)";
+    const entry = map.get(key) ?? { subs: [], events: [] };
+    entry.subs.push(sub);
+    map.set(key, entry);
+  }
+  for (const event of detail.history) {
+    const sub = event.subProductId ? detail.subProducts.find((row) => row.id === event.subProductId) : undefined;
+    const key = (sub?.fishermanName ?? "").trim() || "(tanpa nama)";
+    const entry = map.get(key) ?? { subs: [], events: [] };
+    entry.events.push(event);
+    map.set(key, entry);
+  }
+  return [...map.entries()].sort((a, b) => {
+    const totalA = a[1].subs.reduce((sum, sub) => sum + sub.quantity, 0);
+    const totalB = b[1].subs.reduce((sum, sub) => sum + sub.quantity, 0);
+    return totalB - totalA;
+  });
+}
+
+export default async function PengepulProdukPage({ params }: PageProps) {
   const user = await currentUser();
   if (!user) redirect("/");
   if (user.accountType !== "pengepul") redirect("/");
   const { id } = await params;
-  const { show } = await searchParams;
   const detail = await getProductDetail(id);
   if (!detail) notFound();
   if (detail.pengepulId !== user.id) {
@@ -64,6 +84,7 @@ export default async function PengepulProdukPage({ params, searchParams }: PageP
       </main>
     );
   }
+  const groups = groupByFisherman(detail);
 
   return (
     <main className="lot-page">
@@ -114,62 +135,90 @@ export default async function PengepulProdukPage({ params, searchParams }: PageP
               <span className="lot-stock">
                 <Scale aria-hidden="true" /> {detail.available.toFixed(1)} kg total
               </span>
+              <TerimaButton productId={detail.id} productName={detail.name} productType={detail.type} productSize={detail.size} />
             </div>
           </div>
 
           <section className="sub-products">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <h2 className="lot-steps-title">
-                <Package aria-hidden="true" /> Sumber nelayan ({detail.subProducts.length})
+                <Package aria-hidden="true" /> Sumber nelayan ({groups.length} nelayan · {detail.subProducts.length} penerimaan)
               </h2>
-              <span className="hint">Ketuk kartu untuk lihat detail & history.</span>
             </div>
-            {detail.subProducts.length ? (
-              <ul className="trace-fishermen">
-                {detail.subProducts.map((sub) => {
-                  const subHistory = detail.history.filter(
-                    (event) => event.subProductId === sub.id
-                  );
-                  const lastStage = subHistory.find((event) => event.stage)?.stage ?? null;
+            {groups.length ? (
+              <div className="fisherman-groups">
+                {groups.map(([name, group]) => {
+                  const total = group.subs.reduce((sum, sub) => sum + sub.quantity, 0);
                   return (
-                    <li key={sub.id}>
-                      <Package aria-hidden="true" />
-                      <span>
-                        <strong>{sub.name || sub.fishermanName}</strong>
-                        <small>
-                          <UserRound aria-hidden="true" /> {sub.fishermanName} · {sub.quantity.toFixed(1)} {sub.unit} · Rp
-                          {money.format(sub.price)}/kg
-                        </small>
-                        <small>
-                          Min. order {sub.minOrderKg.toFixed(1)} kg
-                          {sub.grade ? ` · Grade ${sub.grade}` : ""}
-                        </small>
-                        <small>
-                          {sub.quality.cleanHandling ? "✓ Bersih" : "⚠ Perlu cek"} · {sub.quality.packaging}
-                          {sub.quality.temperature ? ` · ${sub.quality.temperature}` : ""}
-                          {sub.quality.dispatch ? ` · ${sub.quality.dispatch}` : ""}
-                        </small>
-                        <small>
-                          {sub.geoLat !== null && sub.geoLng !== null ? (
-                            <>
-                              <MapPin aria-hidden="true" /> {sub.geoLat.toFixed(4)}, {sub.geoLng.toFixed(4)}
-                            </>
-                          ) : (
-                            "Lokasi tidak diisi"
-                          )}
-                          {lastStage ? ` · Stage: ${HISTORY_STAGE_LABELS[lastStage]}` : ""}
-                          {subHistory.length ? ` · ${subHistory.length} event` : ""}
-                        </small>
-                      </span>
-                      <Link href={`/pengepul/produk/${detail.id}/sub/${sub.id}`} className="link-button">
-                        Detail <ArrowUpRight aria-hidden="true" />
-                      </Link>
-                    </li>
+                    <article key={name} className="fisherman-group">
+                      <header className="fisherman-group-head">
+                        <span className="fisherman-avatar">
+                          <UserRound aria-hidden="true" />
+                        </span>
+                        <span>
+                          <strong>{name}</strong>
+                          <small>
+                            {group.subs.length} penerimaan · {total.toFixed(1)} kg tersedia
+                          </small>
+                        </span>
+                      </header>
+                      <ol className="receipt-list">
+                        {group.subs.map((sub, index) => {
+                          const creation = detail.history
+                            .filter((event) => event.subProductId === sub.id && event.kind !== "jual")
+                            .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))[0];
+                          return (
+                            <li key={sub.id} className="receipt-card">
+                              <header>
+                                <strong>Penerimaan {String(index + 1).padStart(2, "0")}</strong>
+                                <small>{formatDateTime(creation?.createdAt ?? sub.createdAt)}</small>
+                              </header>
+                              <dl>
+                                <div><dt>Jumlah</dt><dd>{sub.quantity.toFixed(1)} {sub.unit}</dd></div>
+                                <div><dt>Harga</dt><dd>Rp{money.format(sub.price)}/kg · min. {sub.minOrderKg.toFixed(1)} kg</dd></div>
+                                <div>
+                                  <dt>Kualitas</dt>
+                                  <dd>
+                                    {sub.grade ? `Grade ${sub.grade} · ` : ""}
+                                    {sub.quality.cleanHandling ? "✓ Bersih" : "⚠ Perlu cek"} · {sub.quality.packaging}
+                                    {sub.quality.temperature ? ` · ${sub.quality.temperature}` : ""}
+                                    {sub.quality.dispatch ? ` · ${sub.quality.dispatch}` : ""}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Lokasi</dt>
+                                  <dd>
+                                    {sub.geoLat !== null && sub.geoLng !== null ? (
+                                      <><MapPin aria-hidden="true" /> {sub.geoLat.toFixed(4)}, {sub.geoLng.toFixed(4)}</>
+                                    ) : (
+                                      "Lokasi tidak diisi"
+                                    )}
+                                  </dd>
+                                </div>
+                                {creation?.note ? <div><dt>Catatan</dt><dd>{creation.note}</dd></div> : null}
+                              </dl>
+                              {creation && creation.documents.length ? (
+                                <div className="receipt-docs">
+                                  <span><FileText aria-hidden="true" /> Bukti ({creation.documents.length})</span>
+                                  <ul>
+                                    {creation.documents.map((doc) => (
+                                      <li key={doc.id}>
+                                        <a href={doc.url} target="_blank" rel="noreferrer">{doc.filename}</a>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </article>
                   );
                 })}
-              </ul>
+              </div>
             ) : (
-              <p>Belum ada sumber nelayan. Tambahkan minimal satu untuk mulai.</p>
+              <p>Belum ada sumber nelayan. Tekan Terima untuk mencatat penerimaan pertama.</p>
             )}
           </section>
 
@@ -195,18 +244,6 @@ export default async function PengepulProdukPage({ params, searchParams }: PageP
             ) : (
               <p>Belum ada event tercatat.</p>
             )}
-          </section>
-
-          <section id="tambah-sumber" style={{ scrollMarginTop: "88px" }}>
-            <h2 className="lot-steps-title">
-              <Plus aria-hidden="true" /> Tambah sumber nelayan
-            </h2>
-            <AddFishermanForm productId={detail.id} />
-            {show === "created" ? (
-              <p className="hint" style={{ marginTop: 8 }}>
-                Sumber baru tersimpan. Produk tetap di halaman ini; muat ulang daftar jika perlu.
-              </p>
-            ) : null}
           </section>
 
           <TraceCard barcode={detail.barcode} productName={detail.name} url={`/produk/${detail.id}`} />

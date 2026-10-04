@@ -770,15 +770,7 @@ export async function addSubProductAction(
     geoLng,
     createdAt: now.toISOString(),
   };
-  try {
-    await insertSubProduct(sub);
-  } catch (err: unknown) {
-    const message = errorMessage(err);
-    if (message.toLowerCase().includes("unique") || message.toLowerCase().includes("duplicate")) {
-      return { error: `Nelayan ${fishermanName} sudah ada untuk produk ini.` };
-    }
-    throw err;
-  }
+  await insertSubProduct(sub);
   const history: ProductHistory = {
     id: newId("HIS"),
     productId: product.id,
