@@ -16,6 +16,7 @@ import { currentUser } from "@/lib/session";
 import { getProductDetail } from "@/lib/queries";
 import SeagresLogo from "@/app/components/seagres-logo";
 import AddEventForm from "@/app/components/forms/add-event-form";
+import PengepulBottomNav from "@/app/components/pengepul-bottom-nav";
 import { HISTORY_STAGE_LABELS } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +65,7 @@ export default async function PengepulSubProductPage({ params }: PageProps) {
   const subHistory = detail.history.filter((event) => event.subProductId === sub.id);
 
   return (
-    <main className="lot-page">
+    <main className="lot-page pengepul-shell">
       <header className="lot-topbar">
         <Link href="/dashboard" className="brand">
           <SeagresLogo size={32} />
@@ -212,6 +213,8 @@ export default async function PengepulSubProductPage({ params }: PageProps) {
           </section>
         </div>
       </article>
+
+      <PengepulBottomNav />
     </main>
   );
 }

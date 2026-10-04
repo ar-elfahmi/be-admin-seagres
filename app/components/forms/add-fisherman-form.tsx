@@ -2,7 +2,6 @@
 
 import { Plus, MapPin } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { addSubProductAction } from "../../actions";
 import type { ProductDetail } from "../../../lib/types";
 import VerifiedPhotoCapture, {
@@ -30,7 +29,6 @@ export default function AddFishermanForm({
   productLabel,
   onSaved,
 }: Props) {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [fishermanName, setFishermanName] = useState("");
   const [quantity, setQuantity] = useState("0");
@@ -47,6 +45,7 @@ export default function AddFishermanForm({
   const [docs, setDocs] = useState<VerifiedDoc[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   function captureGeolocation() {
     if (!navigator.geolocation) {
@@ -66,6 +65,7 @@ export default function AddFishermanForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setSuccess(null);
     if (!fishermanName.trim()) {
       setError("Nama nelayan wajib diisi.");
       return;
@@ -113,8 +113,11 @@ export default function AddFishermanForm({
       setDispatch("");
       setNote("");
       setDocs([]);
-      router.refresh();
-      if (res.detail) onSaved?.(res.detail);
+      setSuccess("Sumber nelayan berhasil ditambahkan.");
+      const savedDetail = res.detail;
+      setTimeout(() => {
+        if (savedDetail) onSaved?.(savedDetail);
+      }, 1500);
     } finally {
       setBusy(false);
     }
@@ -131,6 +134,7 @@ export default function AddFishermanForm({
         </div>
       ) : null}
       {error ? <div className="form-error">{error}</div> : null}
+      {success ? <div className="form-success">{success}</div> : null}
       {lockedProductName ? (
         <label>
           Nama nelayan
@@ -273,7 +277,7 @@ export default function AddFishermanForm({
         Catatan event <small>(opsional)</small>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="ex: Hasil tangkapan 2 April" rows={3} />
       </label>
-      <button className="primary-button form-submit" type="submit" disabled={busy}>
+      <button className="primary-button form-submit" type="submit" disabled={busy || success !== null}>
         {busy ? "Menyimpan…" : <><Plus /> Catat sumber nelayan</>}
       </button>
     </form>

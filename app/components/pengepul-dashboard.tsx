@@ -10,8 +10,6 @@ import {
   Clock,
   Ellipsis,
   Eye,
-  Home,
-  LayoutGrid,
   ListOrdered,
   LogOut,
   MapPin,
@@ -26,7 +24,6 @@ import {
   Trash2,
   TrendingUp,
   Truck,
-  UserRound,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -47,6 +44,7 @@ import SeagresLogo from "./seagres-logo";
 import AddFishermanForm from "./forms/add-fisherman-form";
 import VerifiedPhotoCapture, { type VerifiedDoc } from "./verified-photo-capture";
 import MarketFooter from "./market-footer";
+import PengepulBottomNav from "./pengepul-bottom-nav";
 interface PengepulDashboardProps {
   user: PublicUser;
   products: ProductDetail[];
@@ -512,8 +510,9 @@ interface ProductCardProps {
   onDeleted: (id: string) => void;
   onSold: (products: ProductDetail[]) => void;
   onReceived: (detail: ProductDetail) => void;
+  onNotice: (message: string, isError?: boolean) => void;
 }
-function ProductCard({ product, onDeleted, onSold, onReceived }: ProductCardProps) {
+function ProductCard({ product, onDeleted, onSold, onReceived, onNotice }: ProductCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmStep, setConfirmStep] = useState<0 | 1>(0);
   const [sellOpen, setSellOpen] = useState(false);
@@ -591,6 +590,7 @@ function ProductCard({ product, onDeleted, onSold, onReceived }: ProductCardProp
         return;
       }
       if (res.products) onSold(res.products);
+      onNotice(`${qty} kg ${selected?.fishermanName ?? ""} terjual.`);
       setSellOpen(false);
       setAmount("1");
     } finally {
@@ -801,7 +801,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
         flash(res.error, true);
       } else {
         if (res.products) setList(res.products);
-        if (res.product) flash(`${res.product.name} tersimpan permanen dan tampil di katalog.`);
+      flash(res.product ? `${res.product.name} tersimpan permanen dan tampil di katalog.` : "Produk berhasil ditambahkan dan tampil di katalog.");
         setModal(null);
       }
     } catch {
@@ -1014,7 +1014,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
         <section className="product-grid" id="produk-grid">
           {filtered.length ? (
             filtered.map((product) => (
-              <ProductCard key={product.id} product={product} onDeleted={(id) => setList((cur) => cur.filter((p) => p.id !== id))} onSold={(products) => setList(products)} onReceived={(detail) => setList((cur) => cur.map((p) => (p.id === detail.id ? detail : p)))} />
+              <ProductCard key={product.id} product={product} onDeleted={(id) => setList((cur) => cur.filter((p) => p.id !== id))} onSold={(products) => setList(products)} onReceived={(detail) => setList((cur) => cur.map((p) => (p.id === detail.id ? detail : p)))} onNotice={flash} />
             ))
           ) : (
             <div className="empty-state large">
@@ -1119,29 +1119,14 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
       ) : null}
       </div>
 
-      <nav className="bottom-nav" aria-label="Navigasi seluler pengepul">
-        <button className="active" type="button" onClick={scrollToTop}>
-          <Home />
-          <span>Beranda</span>
-        </button>
-        <button type="button" onClick={() => scrollToId("dashboard-stats")}>
-          <LayoutGrid />
-          <span>Ringkasan</span>
-        </button>
-        <button type="button" className="bottom-sell" onClick={() => setModal("create")} aria-label="Tambah produk">
-          <Plus />
-          <span>Tambah</span>
-        </button>
-        <button type="button" onClick={() => setModal("orders")}>
-          <ShoppingCart />
-          <span>Pesanan</span>
-          {newOrders > 0 ? <i>{newOrders}</i> : null}
-        </button>
-        <button type="button" onClick={() => setModal("profile")}>
-          <UserRound />
-          <span>Akun</span>
-        </button>
-      </nav>
+      <PengepulBottomNav
+        newOrders={newOrders}
+        onHome={scrollToTop}
+        onSummary={() => scrollToId("dashboard-stats")}
+        onAdd={() => setModal("create")}
+        onOrders={() => setModal("orders")}
+        onAccount={() => setModal("profile")}
+      />
     </main>
   );
 }

@@ -2438,6 +2438,7 @@ a {
 .auth-card .form label.consent input { width: 16px; height: 16px; min-width: 16px; padding: 0; margin: 2px 0 0; }
 
 .form-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 10px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 600; }
+.form-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; padding: 10px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 600; }
 .form-submit { margin-top: 4px; width: 100%; }
 
 .demo-row { display: flex; align-items: center; gap: 10px; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }

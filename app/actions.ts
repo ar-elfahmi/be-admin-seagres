@@ -546,6 +546,8 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
   const image = uploaded ?? DEFAULT_IMAGES[type] ?? DEFAULT_IMAGES.Bandeng;
 
   const now = new Date();
+  const estimatedCatchAt = new Date(now);
+  estimatedCatchAt.setDate(estimatedCatchAt.getDate() - 1);
   const id = newId("PRD");
   const barcode = makeBarcode(id, now);
   const product: Product = {
@@ -603,7 +605,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
       stage: "estimasi_tangkap",
       note: String(formData.get("historyNote") || "").trim() || null,
       quantityDelta: row.quantity,
-      createdAt: now.toISOString(),
+      createdAt: estimatedCatchAt.toISOString(),
       points: [],
       documents: [],
     };
@@ -827,6 +829,8 @@ export async function addSubProductAction(
   const note = String(formData.get("historyNote") || "").trim() || null;
 
   const now = new Date();
+  const estimatedCatchAt = new Date(now);
+  estimatedCatchAt.setDate(estimatedCatchAt.getDate() - 1);
   const subId = newId("SUB");
   const sub: SubProduct = {
     id: subId,
@@ -863,7 +867,7 @@ export async function addSubProductAction(
     stage: "estimasi_tangkap",
     note,
     quantityDelta: quantity,
-    createdAt: now.toISOString(),
+    createdAt: estimatedCatchAt.toISOString(),
     points: [],
     documents: [],
   };

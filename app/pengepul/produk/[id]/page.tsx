@@ -15,6 +15,7 @@ import { currentUser } from "@/lib/session";
 import { getProductDetail } from "@/lib/queries";
 import SeagresLogo from "@/app/components/seagres-logo";
 import MarketFooter from "@/app/components/market-footer";
+import PengepulBottomNav from "@/app/components/pengepul-bottom-nav";
  import TerimaButton from "./terima-button";
 import TraceCard from "@/app/components/trace-card";
 import TambahRiwayatButton from "./tambah-riwayat-button";
@@ -119,7 +120,7 @@ export default async function PengepulProdukPage({ params }: PageProps) {
   const gradeRows = groupByGrade(detail);
 
   return (
-    <main className="lot-page">
+    <main className="lot-page pengepul-shell">
       <header className="lot-topbar">
         <Link href="/dashboard" className="brand">
           <SeagresLogo size={32} />
@@ -350,6 +351,8 @@ export default async function PengepulProdukPage({ params }: PageProps) {
           },
         ]}
       />
+
+      <PengepulBottomNav />
     </main>
   );
 }
