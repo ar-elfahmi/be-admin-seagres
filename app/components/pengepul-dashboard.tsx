@@ -484,69 +484,70 @@ interface ProductCardProps {
   onChanged: () => void;
 }
 function TrendChart({ series }: { series: number[] }) {
-  const w = 360;
-  const h = 140;
-  const padX = 28;
-  const padY = 14;
-  const labelArea = 16;
-  const innerW = w - padX * 2;
-  const innerH = h - padY * 2 - labelArea;
+  const w = 480;
+  const h = 220;
+  const padL = 36;
+  const padR = 16;
+  const padT = 28;
+  const padB = 38;
+  const innerW = w - padL - padR;
+  const innerH = h - padT - padB;
   const maxRaw = Math.max(...series, 1);
-  const yStep = maxRaw > 200 ? 50 : maxRaw > 80 ? 20 : 10;
+  const yStep = maxRaw > 200 ? 50 : maxRaw > 80 ? 25 : 10;
   const yMax = Math.ceil(maxRaw / yStep) * yStep;
   const stepX = innerW / Math.max(series.length - 1, 1);
   const points = series.map((v, i) => {
-    const x = padX + i * stepX;
-    const y = padY + innerH - (v / yMax) * innerH;
-    return { x, y };
+    const x = padL + i * stepX;
+    const y = padT + innerH - (v / yMax) * innerH;
+    return { x, y, value: v };
   });
-  const baselineY = padY + innerH;
+  const baselineY = padT + innerH;
   const yTicks: number[] = [];
   for (let v = 0; v <= yMax; v += yStep) yTicks.push(v);
   const xLabels = TREND_LABELS.map((label, idx) => ({
-    x: padX + idx * stepX,
+    x: padL + idx * stepX,
     code: label.code,
     range: label.range,
     isCurrent: idx === TREND_LABELS.length - 1,
   }));
   const linePoints = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-  const areaPoints = `${padX},${baselineY} ${linePoints} ${(padX + (series.length - 1) * stepX).toFixed(1)},${baselineY}`;
+  const areaPoints = `${padL},${baselineY} ${linePoints} ${(padL + (series.length - 1) * stepX).toFixed(1)},${baselineY}`;
   return (
     <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tren penjualan Oktober 2026" className="trend-svg">
       <g className="trend-grid-y">
-          {yTicks.map((tk) => {
-            const y = padY + innerH - (tk / yMax) * innerH;
-            return (
-              <g key={`y-${tk}`}>
-                <line x1={padX} x2={w - padX} y1={y} y2={y} />
-                <text x={padX - 6} y={y + 3} textAnchor="end">{tk}</text>
-              </g>
-            );
-          })}
-        </g>
-        <g className="trend-grid-x">
-          {points.map((p, i) => (
-            <line key={`x-${i}`} x1={p.x} x2={p.x} y1={padY} y2={baselineY} />
-          ))}
-        </g>
-        <polygon points={areaPoints} className="trend-area" />
-        <polyline points={linePoints} className="trend-line" />
-        {points.map((p, i) => (
-          <circle key={`dot-${i}`} cx={p.x} cy={p.y} r={3} className="trend-dot" />
-        ))}
-        <g className="trend-axis-x">
-          {xLabels.map((x) => (
-            <g key={x.code}>
-              <text x={x.x} y={baselineY + 12} textAnchor="middle" className={x.isCurrent ? "is-current" : ""}>
-                {x.code}
-              </text>
-              <text x={x.x} y={baselineY + 24} textAnchor="middle" className={x.isCurrent ? "is-current" : ""}>
-                {x.range}
-              </text>
+        {yTicks.map((tk) => {
+          const y = padT + innerH - (tk / yMax) * innerH;
+          return (
+            <g key={`y-${tk}`}>
+              <line x1={padL} x2={w - padR} y1={y} y2={y} />
+              <text x={padL - 6} y={y + 4} textAnchor="end">{tk}</text>
             </g>
-          ))}
-        </g>
-      </svg>
+          );
+        })}
+      </g>
+      <polygon points={areaPoints} className="trend-area" />
+      <polyline points={linePoints} className="trend-line" />
+      <g className="trend-axis-x">
+        {xLabels.map((x) => (
+          <g key={x.code}>
+            <text x={x.x} y={baselineY + 14} textAnchor="middle" className={x.isCurrent ? "is-current" : ""}>
+              {x.code}
+            </text>
+            <text x={x.x} y={baselineY + 28} textAnchor="middle" className={x.isCurrent ? "is-current range" : "range"}>
+              {x.range}
+            </text>
+          </g>
+        ))}
+      </g>
+      <g className="trend-points">
+        {points.map((p, i) => (
+          <g key={`pt-${i}`}>
+            <circle cx={p.x} cy={p.y} r={4} className={i === points.length - 1 ? "trend-dot current" : "trend-dot"} />
+            <text x={p.x} y={p.y - 9} textAnchor="middle" className="trend-value">{p.value}</text>
+          </g>
+        ))}
+      </g>
+    </svg>
   );
 }
 function ProductCard({ product, onChanged }: ProductCardProps) {
