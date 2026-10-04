@@ -75,18 +75,16 @@ function formatRelative(iso: string): string {
   return `${d} hari lalu`;
 }
 type TrendCategory = "Semua" | "Bandeng" | "Udang" | "Kerang" | "Olahan";
-const TREND_LABELS = [
-  { code: "W1", range: "1–7 Okt", mid: 4 },
-  { code: "W2", range: "8–14 Okt", mid: 11 },
-  { code: "W3", range: "15–21 Okt", mid: 18 },
-  { code: "W4", range: "22–28 Okt", mid: 25 },
-];
+const TREND_TICKS = [1, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 31];
+const TREND_LABELS: Record<number, string> = {
+  1: "1 Okt", 6: "6 Okt", 12: "12 Okt", 18: "18 Okt", 24: "24 Okt", 31: "31 Okt",
+};
 const TREND_SERIES: Record<TrendCategory, number[]> = {
-  Semua: [120, 132, 101, 134],
-  Bandeng: [40, 52, 31, 64],
-  Udang: [30, 40, 25, 35],
-  Kerang: [25, 22, 25, 20],
-  Olahan: [25, 18, 20, 15],
+  Semua: [120, 132, 101, 134, 90, 230, 210, 182, 233, 211, 192, 250],
+  Bandeng: [40, 52, 31, 64, 30, 80, 70, 52, 73, 61, 62, 90],
+  Udang: [30, 40, 25, 35, 25, 60, 55, 45, 60, 55, 50, 70],
+  Kerang: [25, 22, 25, 20, 20, 45, 40, 45, 50, 45, 40, 50],
+  Olahan: [25, 18, 20, 15, 15, 45, 45, 40, 50, 50, 40, 40],
 };
 const TOP_PRODUCTS = [
   { name: "Bandeng segar 3–4 ekor", qty: 142, growth: 18, type: "Bandeng" },
@@ -484,12 +482,12 @@ interface ProductCardProps {
   onChanged: () => void;
 }
 function TrendChart({ series }: { series: number[] }) {
-  const w = 480;
-  const h = 220;
-  const padL = 36;
+  const w = 720;
+  const h = 200;
+  const padL = 40;
   const padR = 16;
-  const padT = 28;
-  const padB = 38;
+  const padT = 24;
+  const padB = 36;
   const innerW = w - padL - padR;
   const innerH = h - padT - padB;
   const maxRaw = Math.max(...series, 1);
@@ -499,21 +497,15 @@ function TrendChart({ series }: { series: number[] }) {
   const points = series.map((v, i) => {
     const x = padL + i * stepX;
     const y = padT + innerH - (v / yMax) * innerH;
-    return { x, y, value: v };
+    return { x, y, value: v, tick: TREND_TICKS[i] };
   });
   const baselineY = padT + innerH;
   const yTicks: number[] = [];
   for (let v = 0; v <= yMax; v += yStep) yTicks.push(v);
-  const xLabels = TREND_LABELS.map((label, idx) => ({
-    x: padL + idx * stepX,
-    code: label.code,
-    range: label.range,
-    isCurrent: idx === TREND_LABELS.length - 1,
-  }));
   const linePoints = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
   const areaPoints = `${padL},${baselineY} ${linePoints} ${(padL + (series.length - 1) * stepX).toFixed(1)},${baselineY}`;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tren penjualan Oktober 2026" className="trend-svg">
+    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tren penjualan 12 periode terakhir" className="trend-svg">
       <g className="trend-grid-y">
         {yTicks.map((tk) => {
           const y = padT + innerH - (tk / yMax) * innerH;
@@ -528,22 +520,22 @@ function TrendChart({ series }: { series: number[] }) {
       <polygon points={areaPoints} className="trend-area" />
       <polyline points={linePoints} className="trend-line" />
       <g className="trend-axis-x">
-        {xLabels.map((x) => (
-          <g key={x.code}>
-            <text x={x.x} y={baselineY + 14} textAnchor="middle" className={x.isCurrent ? "is-current" : ""}>
-              {x.code}
+        {points.map((p) => {
+          const label = TREND_LABELS[p.tick];
+          if (!label) return null;
+          const isCurrent = p.tick === TREND_TICKS[TREND_TICKS.length - 1];
+          return (
+            <text key={`xl-${p.tick}`} x={p.x} y={baselineY + 18} textAnchor="middle" className={isCurrent ? "is-current" : ""}>
+              {label}
             </text>
-            <text x={x.x} y={baselineY + 28} textAnchor="middle" className={x.isCurrent ? "is-current range" : "range"}>
-              {x.range}
-            </text>
-          </g>
-        ))}
+          );
+        })}
       </g>
       <g className="trend-points">
         {points.map((p, i) => (
           <g key={`pt-${i}`}>
-            <circle cx={p.x} cy={p.y} r={4} className={i === points.length - 1 ? "trend-dot current" : "trend-dot"} />
-            <text x={p.x} y={p.y - 9} textAnchor="middle" className="trend-value">{p.value}</text>
+            <circle cx={p.x} cy={p.y} r={3} className={i === points.length - 1 ? "trend-dot current" : "trend-dot"} />
+            <text x={p.x} y={p.y - 8} textAnchor="middle" className="trend-value">{p.value}</text>
           </g>
         ))}
       </g>
@@ -692,6 +684,7 @@ function ProductCard({ product, onChanged }: ProductCardProps) {
 export default function PengepulDashboard({ user, products, orders, activity }: PengepulDashboardProps) {
   const [list, setList] = useState<ProductDetail[]>(products);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Semua");
+  const [trend, setTrend] = useState<TrendCategory>("Semua");
 
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState<"create" | "profile" | "orders" | null>(null);
@@ -806,14 +799,28 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
           <article className="dash-card trend-card">
             <header className="dash-card-head">
               <h3><TrendingUp aria-hidden="true" /> Tren penjualan</h3>
-              <span className="dash-card-sub">Oktober 2026 · akumulasi kg</span>
+              <span className="dash-card-sub">12 periode terakhir · mock</span>
             </header>
+            <div className="trend-chips" role="tablist" aria-label="Pilih kategori tren">
+              {(["Semua", "Bandeng", "Udang", "Kerang", "Olahan"] as const).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  role="tab"
+                  aria-selected={trend === item}
+                  className={trend === item ? "selected" : ""}
+                  onClick={() => setTrend(item)}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
             <div className="trend-chart-wrap">
-              <TrendChart series={TREND_SERIES.Semua} />
+              <TrendChart series={TREND_SERIES[trend]} />
             </div>
             <footer className="trend-foot">
-              <span>Total bulan ini {money.format(TREND_SERIES.Semua.reduce((a, b) => a + b, 0))} kg</span>
-              <span className="trend-delta">+12% vs September</span>
+              <span>Total {money.format(TREND_SERIES[trend].reduce((a, b) => a + b, 0))} kg</span>
+              <span className="trend-delta">+12% vs periode lalu</span>
             </footer>
           </article>
 
