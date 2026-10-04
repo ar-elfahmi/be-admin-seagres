@@ -4,11 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ArrowUpRight,
   BadgeCheck,
   Check,
   ChevronDown,
+  ChevronRight,
   ClipboardCheck,
+  Clock,
   FileText,
+  ListOrdered,
   LogOut,
   MapPin,
   Package,
@@ -19,8 +23,10 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
+  Star,
   Store,
   Trash2,
+  TrendingUp,
   Truck,
   UserRound,
   X,
@@ -39,14 +45,15 @@ import type {
   PublicUser,
   SubProduct,
 } from "../../lib/types";
+import type { RecentActivity } from "../../lib/queries";
 import SeagresLogo from "./seagres-logo";
 
 interface PengepulDashboardProps {
   user: PublicUser;
   products: ProductDetail[];
   orders: OrderView[];
+  activity: RecentActivity[];
 }
-
 const money = new Intl.NumberFormat("id-ID");
 
 const FILTERS = ["Semua", "Bandeng", "Udang", "Kerang", "Olahan"] as const;
@@ -55,6 +62,33 @@ const HISTORY_KIND_LABELS: Record<HistoryKind, string> = {
   terima_nelayan: "Terima dari nelayan",
   jual: "Jual",
 };
+
+function formatRelative(iso: string): string {
+  const t = new Date(iso).getTime();
+  const diff = Math.max(0, Date.now() - t);
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "baru saja";
+  if (m < 60) return `${m} menit lalu`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} jam lalu`;
+  const d = Math.floor(h / 24);
+  return `${d} hari lalu`;
+}
+type TrendCategory = "Semua" | "Bandeng" | "Udang" | "Kerang" | "Olahan";
+const TREND_SERIES: Record<TrendCategory, number[]> = {
+  Semua: [120, 132, 101, 134, 90, 230, 210, 182, 233, 211, 192, 250],
+  Bandeng: [40, 52, 31, 64, 30, 80, 70, 52, 73, 61, 62, 90],
+  Udang: [30, 40, 25, 35, 25, 60, 55, 45, 60, 55, 50, 70],
+  Kerang: [25, 22, 25, 20, 20, 45, 40, 45, 50, 45, 40, 50],
+  Olahan: [25, 18, 20, 15, 15, 45, 45, 40, 50, 50, 40, 40],
+};
+const TOP_PRODUCTS = [
+  { name: "Bandeng segar 3–4 ekor", qty: 142, growth: 18, type: "Bandeng" },
+  { name: "Udang vaname size 50", qty: 96, growth: 12, type: "Udang" },
+  { name: "Kerang hijau bersih", qty: 78, growth: 6, type: "Kerang" },
+  { name: "Olahan bandeng presto", qty: 54, growth: 24, type: "Olahan" },
+  { name: "Udang windu size 40", qty: 41, growth: -3, type: "Udang" },
+];
 
 function isLocalAsset(src: string): boolean {
   return src.startsWith("/products/") || src.startsWith("/uploads/");
@@ -443,7 +477,29 @@ interface ProductCardProps {
   product: ProductDetail;
   onChanged: () => void;
 }
-
+function TrendChart({ series }: { series: number[] }) {
+  const w = 320;
+  const h = 96;
+  const padX = 6;
+  const padY = 8;
+  const max = Math.max(...series, 1);
+  const stepX = (w - padX * 2) / Math.max(series.length - 1, 1);
+  const points = series.map((v, i) => {
+    const x = padX + i * stepX;
+    const y = h - padY - (v / max) * (h - padY * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const area = `${padX},${h - padY} ${points.join(" ")} ${(padX + (series.length - 1) * stepX).toFixed(1)},${h - padY}`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tren penjualan 12 periode terakhir" preserveAspectRatio="none" className="trend-svg">
+      <polygon points={area} className="trend-area" />
+      <polyline points={points.join(" ")} className="trend-line" />
+      {points.map((p, i) => (
+        <circle key={i} cx={Number(p.split(",")[0])} cy={Number(p.split(",")[1])} r={2.4} className="trend-dot" />
+      ))}
+    </svg>
+  );
+}
 function ProductCard({ product, onChanged }: ProductCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -583,9 +639,10 @@ function ProductCard({ product, onChanged }: ProductCardProps) {
   );
 }
 
-export default function PengepulDashboard({ user, products, orders }: PengepulDashboardProps) {
+export default function PengepulDashboard({ user, products, orders, activity }: PengepulDashboardProps) {
   const [list, setList] = useState<ProductDetail[]>(products);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Semua");
+  const [trend, setTrend] = useState<TrendCategory>("Semua");
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState<"create" | "profile" | "orders" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -601,6 +658,7 @@ export default function PengepulDashboard({ user, products, orders }: PengepulDa
     return true;
   });
   const newOrders = orders.filter((order) => order.status === "Baru").length;
+  const pendingOrders = orders.filter((order) => order.status === "Baru");
   const totalStock = list.reduce((sum, product) => sum + product.available, 0);
   const totalFishermen = list.reduce((sum, product) => sum + product.subProducts.length, 0);
 
@@ -692,6 +750,113 @@ export default function PengepulDashboard({ user, products, orders }: PengepulDa
             <strong>{user.verified ? "Terverifikasi" : "Menunggu"}</strong>
             <small>{user.verificationBasis}</small>
           </div>
+        </section>
+
+        <section className="dashboard-grid">
+          <article className="dash-card trend-card">
+            <header className="dash-card-head">
+              <h3><TrendingUp aria-hidden="true" /> Tren penjualan</h3>
+              <span className="dash-card-sub">12 periode terakhir · mock</span>
+            </header>
+            <div className="trend-chips" role="tablist" aria-label="Pilih kategori tren">
+              {(["Semua", "Bandeng", "Udang", "Kerang", "Olahan"] as const).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  role="tab"
+                  aria-selected={trend === item}
+                  className={trend === item ? "selected" : ""}
+                  onClick={() => setTrend(item)}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+            <div className="trend-chart-wrap">
+              <TrendChart series={TREND_SERIES[trend]} />
+            </div>
+            <footer className="trend-foot">
+              <span>Total {money.format(TREND_SERIES[trend].reduce((a, b) => a + b, 0))} kg</span>
+              <span className="trend-delta">+12% vs periode lalu</span>
+            </footer>
+          </article>
+
+          <article className="dash-card top-card">
+            <header className="dash-card-head">
+              <h3><Star aria-hidden="true" /> Produk terlaris bulan ini</h3>
+              <span className="dash-card-sub">Mock · 5 teratas</span>
+            </header>
+            <ul className="top-list">
+              {TOP_PRODUCTS.map((item) => (
+                <li key={item.name}>
+                  <span className="top-name">{item.name}</span>
+                  <span className="top-qty">{item.qty} kg</span>
+                  <span className={item.growth >= 0 ? "top-growth up" : "top-growth down"}>
+                    {item.growth >= 0 ? "+" : ""}{item.growth}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </article>
+
+          <article className="dash-card activity-card">
+            <header className="dash-card-head">
+              <h3><Clock aria-hidden="true" /> Aktivitas terbaru</h3>
+              <span className="dash-card-sub">Event & pesanan · real</span>
+            </header>
+            <ul className="activity-list">
+              {activity.length ? (
+                activity.slice(0, 5).map((item) => (
+                  <li key={`${item.kind}-${item.id}`}>
+                    <span className={`activity-dot dot-${item.kind}`} />
+                    <span className="activity-body">
+                      {item.kind === "event" ? (
+                        <>
+                          <strong>{item.actor}</strong> {HISTORY_KIND_LABELS[item.historyKind]} <em>{item.productName}</em>
+                          {item.quantityDelta ? <> · {item.quantityDelta > 0 ? "+" : ""}{item.quantityDelta} kg</> : null}
+                          {item.note ? <small> — {item.note}</small> : null}
+                        </>
+                      ) : (
+                        <>
+                          <strong>{item.buyer}</strong> pre-order <em>{item.product}</em> · {item.quantity} kg
+                          <small> — status {item.status}</small>
+                        </>
+                      )}
+                    </span>
+                    <time>{formatRelative(item.createdAt)}</time>
+                  </li>
+                ))
+              ) : (
+                <li className="activity-empty">Belum ada aktivitas tercatat.</li>
+              )}
+            </ul>
+          </article>
+
+          <article className="dash-card orders-card">
+            <header className="dash-card-head">
+              <h3><ListOrdered aria-hidden="true" /> Pesanan perlu aksi</h3>
+              <span className="dash-card-sub">{pendingOrders.length} pesanan · status Baru</span>
+            </header>
+            {pendingOrders.length ? (
+              <ul className="orders-mini">
+                {pendingOrders.slice(0, 3).map((order) => (
+                  <li key={order.id}>
+                    <span className="order-buyer">{order.buyer}</span>
+                    <span className="order-product">{order.product}</span>
+                    <span className="order-qty">{order.quantity} kg</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="empty-state inline">
+                <ShoppingCart />
+                <h3>Tidak ada pesanan menunggu</h3>
+              </div>
+            )}
+            <button type="button" className="dash-card-link" onClick={() => setModal("orders")}>
+              Buka semua pesanan <ChevronRight aria-hidden="true" />
+            </button>
+          </article>
         </section>
 
         <section className="action-bar">

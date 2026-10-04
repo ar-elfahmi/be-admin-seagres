@@ -34,7 +34,31 @@ import type {
   ProductHistory,
   SubProduct,
   User,
+  HistoryKind,
 } from "./types";
+
+export type RecentActivity =
+  | {
+      kind: "event";
+      id: string;
+      createdAt: string;
+      productId: string;
+      productName: string;
+      actor: string;
+      historyKind: HistoryKind;
+      quantityDelta: number;
+      note: string | null;
+    }
+  | {
+      kind: "order";
+      id: string;
+      createdAt: string;
+      product: string;
+      seller: string;
+      buyer: string;
+      quantity: number;
+      status: string;
+    };
 
 
 /** Seluruh lot, terbaru dulu (urutan yang diharapkan katalog). */
@@ -336,6 +360,63 @@ export async function listProductDetailsByPengepul(pengepulId: string): Promise<
     history: histories[index],
     available: subs[index].reduce((sum, sub) => sum + sub.quantity, 0),
   }));
+}
+
+/**
+ * Aktivitas terbaru gabungan event product_history (untuk pengepul ini)
+ * dan orders (semua, tampilan ringkas). Terbaru dulu.
+ */
+export async function listRecentActivity(
+  pengepulId: string,
+  limit = 8
+): Promise<RecentActivity[]> {
+  const [eventsRes, orders] = await Promise.all([
+    supabase()
+      .from("product_history")
+      .select("id, product_id, actor, kind, quantity_delta, note, created_at, products!inner(name, pengepul_id)")
+      .eq("products.pengepul_id", pengepulId)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    listOrderViews(),
+  ]);
+  if (eventsRes.error) throw eventsRes.error;
+  type EventRow = {
+    id: string;
+    product_id: string;
+    actor: string;
+    kind: HistoryKind;
+    quantity_delta: string | number;
+    note: string | null;
+    created_at: string;
+    products: { name: string } | { name: string }[];
+  };
+  const events: RecentActivity[] = ((eventsRes.data ?? []) as EventRow[]).map((row) => {
+    const product = Array.isArray(row.products) ? row.products[0] : row.products;
+    return {
+      kind: "event",
+      id: row.id,
+      createdAt: row.created_at,
+      productId: row.product_id,
+      productName: product?.name ?? "(produk)",
+      actor: row.actor,
+      historyKind: row.kind,
+      quantityDelta: Number(row.quantity_delta),
+      note: row.note,
+    };
+  });
+  const orderItems: RecentActivity[] = orders.map((order) => ({
+    kind: "order",
+    id: order.id,
+    createdAt: order.createdAt,
+    product: order.product,
+    seller: order.seller,
+    buyer: order.buyer,
+    quantity: order.quantity,
+    status: order.status,
+  }));
+  return [...events, ...orderItems]
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
+    .slice(0, limit);
 }
 
 export async function insertProduct(product: Product): Promise<void> {
