@@ -1,8 +1,9 @@
 import type {
-  AccountType,
-  DocumentKind,
   Database,
   HistoryKind,
+  HistoryPoint,
+  HistoryDocument,
+  HistoryStage,
   IssueReport,
   Lot,
   LotQuality,
@@ -10,12 +11,12 @@ import type {
   OrderView,
   Price,
   Product,
+  ProductGrade,
   ProductHistory,
   PublicUser,
   SubProduct,
   User,
-  HistoryPoint,
-  HistoryDocument,
+  DocumentKind,
 } from "./types";
 
 /**
@@ -60,7 +61,7 @@ export type UserRow = {
   name: string;
   initials: string;
   email: string;
-  account_type: AccountType | null;
+  account_type: string | null;
   role: string;
   organization: string;
   location: string;
@@ -70,6 +71,7 @@ export type UserRow = {
   pw_salt: string;
   pw_hash: string;
   token: string | null;
+  created_at: string;
 };
 
 export type ReportRow = {
@@ -79,7 +81,7 @@ export type ReportRow = {
   lot_id: string | null;
   category: string;
   description: string;
-  status: IssueReport["status"];
+  status: string;
   created_at: string;
 };
 
@@ -88,7 +90,7 @@ export type PriceRow = { name: string; price: string | number; source: string; i
 export type ProductRow = {
   id: string;
   name: string;
-  type: Product["type"];
+  type: string;
   price: string | number;
   coret: string | number | null;
   size: string;
@@ -111,6 +113,8 @@ export type SubProductRow = {
   geo_lat: number | null;
   geo_lng: number | null;
   price: string | number | null;
+  grade: string | null;
+  min_order_kg: string | number | null;
   quality: LotQuality | null;
   created_at: string;
 };
@@ -122,6 +126,7 @@ export type HistoryRow = {
   actor_id: string;
   actor: string;
   kind: HistoryKind;
+  stage: string | null;
   note: string | null;
   quantity_delta: string | number;
   created_at: string;
@@ -147,6 +152,23 @@ export type DocumentRow = {
 };
 
 const num = (value: string | number): number => Number(value);
+
+const STAGE_SET: ReadonlySet<string> = new Set([
+  "estimasi_tangkap",
+  "diambil_pengepul",
+  "simpan_gudang",
+  "olah",
+  "siap_jual",
+  "jual",
+]);
+const GRADE_SET: ReadonlySet<string> = new Set(["A", "B", "C", "D"]);
+
+function parseStage(value: string | null): HistoryStage | null {
+  return value && STAGE_SET.has(value) ? (value as HistoryStage) : null;
+}
+function parseGrade(value: string | null): ProductGrade | null {
+  return value && GRADE_SET.has(value) ? (value as ProductGrade) : null;
+}
 
 export function toLot(row: LotRow): Lot {
   const base: Lot = {
@@ -194,7 +216,7 @@ export function toUser(row: UserRow): User {
     name: row.name,
     initials: row.initials,
     email: row.email,
-    accountType: row.account_type ?? "pengepul",
+    accountType: (row.account_type as User["accountType"]) ?? "pengepul",
     role: row.role,
     organization: row.organization,
     location: row.location,
@@ -215,7 +237,7 @@ export function toReport(row: ReportRow): IssueReport {
     lotId: row.lot_id,
     category: row.category,
     description: row.description,
-    status: row.status,
+    status: row.status as IssueReport["status"],
     createdAt: row.created_at,
   };
 }
@@ -234,7 +256,7 @@ export function toProduct(row: ProductRow): Product {
   return {
     id: row.id,
     name: row.name,
-    type: row.type,
+    type: row.type as Product["type"],
     price: num(row.price),
     coret: row.coret === null ? null : num(row.coret),
     size: row.size,
@@ -247,6 +269,7 @@ export function toProduct(row: ProductRow): Product {
     createdAt: row.created_at,
   };
 }
+
 export function toSubProduct(row: SubProductRow): SubProduct {
   return {
     id: row.id,
@@ -258,6 +281,9 @@ export function toSubProduct(row: SubProductRow): SubProduct {
     geoLat: row.geo_lat,
     geoLng: row.geo_lng,
     price: row.price === null || row.price === undefined ? 0 : num(row.price),
+    grade: parseGrade(row.grade),
+    minOrderKg:
+      row.min_order_kg === null || row.min_order_kg === undefined ? 1 : num(row.min_order_kg),
     quality: row.quality ?? {
       cleanHandling: true,
       packaging: "Standar pengepul",
@@ -276,6 +302,7 @@ export function toHistory(row: HistoryRow): ProductHistory {
     actorId: row.actor_id,
     actor: row.actor,
     kind: row.kind,
+    stage: parseStage(row.stage),
     note: row.note,
     quantityDelta: num(row.quantity_delta),
     createdAt: row.created_at,
@@ -306,3 +333,5 @@ export function toDocument(row: DocumentRow): HistoryDocument {
     createdAt: row.created_at,
   };
 }
+
+export type { Database };

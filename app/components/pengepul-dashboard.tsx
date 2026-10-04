@@ -94,7 +94,7 @@ const TOP_PRODUCTS = [
   { name: "Udang windu size 40", qty: 41, growth: -3, type: "Udang" },
 ];
 
-function isLocalAsset(src: string): boolean {
+export function isLocalAsset(src: string): boolean {
   return src.startsWith("/products/") || src.startsWith("/uploads/");
 }
 
@@ -591,6 +591,13 @@ function ProductCard({ product, onChanged }: ProductCardProps) {
           </div>
         </div>
         <div className="pcr-actions">
+          <Link
+            href={`/pengepul/produk/${product.id}`}
+            className="ghost"
+            aria-label="Kelola sub-produk dan history"
+          >
+            <ListOrdered /> Kelola
+          </Link>
           <button type="button" onClick={printLabel} className="ghost" aria-label="Cetak label">
             <Printer /> Cetak
           </button>

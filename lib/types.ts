@@ -102,6 +102,8 @@ export interface Product {
   barcode: string;
   createdAt: string;
 }
+export type ProductGrade = "A" | "B" | "C" | "D";
+
 export interface SubProduct {
   id: string;
   productId: string;
@@ -112,9 +114,30 @@ export interface SubProduct {
   geoLat: number | null;
   geoLng: number | null;
   price: number;
+  minOrderKg: number;
+  grade: ProductGrade | null;
   quality: LotQuality;
   createdAt: string;
 }
+
+export const HISTORY_STAGES = [
+  "estimasi_tangkap",
+  "diambil_pengepul",
+  "simpan_gudang",
+  "olah",
+  "siap_jual",
+  "jual",
+] as const;
+export type HistoryStage = (typeof HISTORY_STAGES)[number];
+
+export const HISTORY_STAGE_LABELS: Record<HistoryStage, string> = {
+  estimasi_tangkap: "Waktu perkiraan ditangkap",
+  diambil_pengepul: "Waktu diambil oleh pengepul",
+  simpan_gudang: "Waktu disimpan di gudang",
+  olah: "Waktu diolah",
+  siap_jual: "Siap jual",
+  jual: "Waktu dijual",
+};
 
 export type HistoryKind = "tambah_produk" | "terima_nelayan" | "jual";
 
@@ -146,6 +169,7 @@ export interface ProductHistory {
   actorId: string;
   actor: string;
   kind: HistoryKind;
+  stage: HistoryStage | null;
   note: string | null;
   quantityDelta: number;
   createdAt: string;

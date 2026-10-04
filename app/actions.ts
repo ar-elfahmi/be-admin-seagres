@@ -34,6 +34,7 @@ import { currentUser, startSession, endSession } from "../lib/session";
 import type {
   AccountType,
   HistoryKind,
+  HistoryStage,
   IssueReport,
   Lot,
   LotQuality,
@@ -41,11 +42,34 @@ import type {
   OrderView,
   Product,
   ProductDetail,
+  ProductGrade,
   ProductHistory,
   RegisterInput,
   SubProduct,
   User,
 } from "../lib/types";
+
+const STAGE_FOR_KIND: Record<HistoryKind, HistoryStage> = {
+  tambah_produk: "estimasi_tangkap",
+  terima_nelayan: "diambil_pengepul",
+  jual: "jual",
+};
+const ALLOWED_STAGES: ReadonlySet<string> = new Set([
+  "estimasi_tangkap",
+  "diambil_pengepul",
+  "simpan_gudang",
+  "olah",
+  "siap_jual",
+  "jual",
+]);
+const ALLOWED_GRADES: ReadonlySet<string> = new Set(["A", "B", "C", "D"]);
+function asStage(value: string | null): HistoryStage | null {
+  return value && ALLOWED_STAGES.has(value) ? (value as HistoryStage) : null;
+}
+function asGrade(value: string): ProductGrade | null {
+  const upper = value.trim().toUpperCase();
+  return upper && ALLOWED_GRADES.has(upper) ? (upper as ProductGrade) : null;
+}
 
 const DEFAULT_IMAGES: Record<string, string> = {
   Bandeng: "/products/bandeng.png",
@@ -64,6 +88,10 @@ const ACCEPT_IMAGES: Record<string, string> = {
 
 function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36).toUpperCase()}${crypto.randomBytes(2).toString("hex").toUpperCase()}`;
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : "";
 }
 
 export async function login(email: unknown, password: unknown): Promise<{ error?: string; ok?: boolean }> {
@@ -207,7 +235,6 @@ export async function preorder(
   if (!lot) return { error: "Lot tidak ditemukan." };
   if (lot.weight <= 0) return { error: "Stok lot ini sudah habis." };
   const amount = Math.max(1, Math.min(lot.weight, Math.round(Number(quantity) || 1)));
-  // Reservasi atomik dulu: row lock mencegah oversell; gagal berarti stok kurang.
   const reserved = await reserveWeight(lot.id, amount);
   if (!reserved) return { error: "Stok lot ini sudah habis." };
   const order: Order = {
@@ -239,7 +266,6 @@ export async function setOrderStatus(
     return { error: "Hanya kelompok pengepul lot ini yang bisa mengubah status." };
   }
   const updated = await updateOrderStatus(orderId, status);
-  // Efek penerimaan hanya sekali: guard transisi + hanya jika update sukses.
   if (updated && status === "Diterima" && order.status !== "Diterima") {
     await applyAcceptEffects(order);
   }
@@ -248,7 +274,6 @@ export async function setOrderStatus(
   return { ok: true, orders: await listOrderViews(), lots: await listLots() };
 }
 
-/** Kirim laporan masalah. Boleh dari akun apa pun yang sudah login. */
 export async function reportIssue(
   formData: FormData
 ): Promise<{ error?: string; ok?: boolean; report?: IssueReport }> {
@@ -276,13 +301,14 @@ export async function reportIssue(
 
 /* ---------- Produk agregasi pengepul ---------- */
 
-
 interface ParsedFisherman {
   index: number;
   name: string;
   fishermanName: string;
   quantity: number;
   price: number;
+  minOrderKg: number;
+  grade: ProductGrade | null;
   quality: {
     cleanHandling: boolean;
     packaging: string;
@@ -301,6 +327,8 @@ function readFishermanRows(formData: FormData): ParsedFisherman[] {
     const fishermanName = String(formData.get(`fishermanName[${i}]`) || "").trim();
     const quantity = Number(formData.get(`subQuantity[${i}]`));
     const price = Number(formData.get(`subPrice[${i}]`));
+    const minOrderRaw = Number(formData.get(`minOrderKg[${i}]`));
+    const gradeRaw = String(formData.get(`grade[${i}]`) || "").trim().toUpperCase();
     const latRaw = String(formData.get(`geoLat[${i}]`) || "").trim();
     const lngRaw = String(formData.get(`geoLng[${i}]`) || "").trim();
     const geoLat = latRaw ? Number(latRaw) : null;
@@ -322,14 +350,16 @@ function readFishermanRows(formData: FormData): ParsedFisherman[] {
       fishermanName,
       quantity: Number.isNaN(quantity) ? 0 : quantity,
       price: Number.isNaN(price) ? 0 : price,
+      minOrderKg: Number.isFinite(minOrderRaw) && minOrderRaw > 0 ? minOrderRaw : 1,
+      grade: asGrade(gradeRaw),
       quality: {
         cleanHandling,
         packaging,
         temperature: temperatureRaw || null,
         dispatch: dispatchRaw || null,
       },
-      geoLat: geoLat !== null && !Number.isNaN(geoLat) ? geoLat : null,
-      geoLng: geoLng !== null && !Number.isNaN(geoLng) ? geoLng : null,
+      geoLat,
+      geoLng,
       files,
     });
   }
@@ -469,28 +499,12 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
   try {
     await insertProduct(product);
   } catch (err: unknown) {
-    const message = (err as { message?: string })?.message ?? "";
+    const message = errorMessage(err);
     if (message.toLowerCase().includes("unique") || message.toLowerCase().includes("duplicate")) {
       return { error: "Produk dengan nama ini sudah ada di pengepulanmu." };
     }
     throw err;
   }
-
-  // Sub-products + history tambah_produk per nelayan.
-  const history: ProductHistory = {
-    id: newId("HIS"),
-    productId: product.id,
-    subProductId: null,
-    actorId: user.id,
-    actor: user.name,
-    kind: "tambah_produk",
-    note: String(formData.get("historyNote") || "").trim() || null,
-    quantityDelta: 0,
-    createdAt: now.toISOString(),
-    points: [],
-    documents: [],
-  };
-  await insertHistory(history);
 
   for (const row of fishermen) {
     const subId = newId("SUB");
@@ -501,6 +515,8 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
       fishermanName: row.fishermanName,
       quantity: row.quantity,
       price: row.price,
+      minOrderKg: row.minOrderKg,
+      grade: row.grade,
       quality: row.quality,
       unit: "kg",
       geoLat: row.geoLat,
@@ -508,20 +524,33 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
       createdAt: now.toISOString(),
     };
     await insertSubProduct(sub);
+    const subHistory: ProductHistory = {
+      id: newId("HIS"),
+      productId: product.id,
+      subProductId: subId,
+      actorId: user.id,
+      actor: user.name,
+      kind: "tambah_produk",
+      stage: "estimasi_tangkap",
+      note: String(formData.get("historyNote") || "").trim() || null,
+      quantityDelta: row.quantity,
+      createdAt: now.toISOString(),
+      points: [],
+      documents: [],
+    };
+    await insertHistory(subHistory);
     if (row.geoLat !== null && row.geoLng !== null) {
       await insertGeoPoint({
         id: newId("GEO"),
-        historyId: history.id,
+        historyId: subHistory.id,
         lat: row.geoLat,
         lng: row.geoLng,
         label: `Nelayan ${row.fishermanName}`,
         createdAt: now.toISOString(),
       });
     }
-    const docResult = await uploadHistoryDocuments(row.files, history.id);
+    const docResult = await uploadHistoryDocuments(row.files, subHistory.id);
     if (docResult.failures.length) {
-      // Berkas yang gagal diunggah tidak membatalkan produk; info diteruskan
-      // ke klien lewat ok response agar UI bisa menampilkan peringatan.
       console.warn("Dokumen gagal diunggah", docResult.failures);
     }
   }
@@ -531,6 +560,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
   revalidatePath("/");
   revalidatePath("/pengepul");
   revalidatePath(`/produk/${product.id}`);
+  revalidatePath(`/pengepul/produk/${product.id}`);
   return { ok: true, product: detail ?? undefined, products };
 }
 
@@ -574,6 +604,7 @@ export async function updateProductQuantity(
     actorId: user.id,
     actor: user.name,
     kind,
+    stage: STAGE_FOR_KIND[kind],
     note: kind === "terima_nelayan" ? `Tambahan ${amount} kg dari ${sub.fishermanName}` : `Jual ${amount} kg dari ${sub.fishermanName}`,
     quantityDelta: delta,
     createdAt: new Date().toISOString(),
@@ -587,6 +618,7 @@ export async function updateProductQuantity(
   revalidatePath("/");
   revalidatePath("/pengepul");
   revalidatePath(`/produk/${product.id}`);
+  revalidatePath(`/pengepul/produk/${product.id}`);
   return { ok: true, detail: detail ?? undefined, products };
 }
 
@@ -604,11 +636,21 @@ export async function addProductHistory(formData: FormData): Promise<AddProductH
   const productId = String(formData.get("productId") || "").trim();
   const kind = String(formData.get("kind") || "tambah_produk") as HistoryKind;
   const note = String(formData.get("note") || "").trim() || null;
+  const subProductIdRaw = String(formData.get("subProductId") || "").trim();
+  const stageRaw = String(formData.get("stage") || "").trim();
   if (!["tambah_produk", "terima_nelayan", "jual"].includes(kind)) return { error: "Jenis event tidak valid." };
 
   const product = await getProduct(productId);
   if (!product) return { error: "Produk tidak ditemukan." };
   if (product.pengepulId !== user.id) return { error: "Produk ini bukan milikmu." };
+
+  let subProductId: string | null = null;
+  if (subProductIdRaw) {
+    const sub = await getSubProduct(subProductIdRaw);
+    if (!sub || sub.productId !== productId) return { error: "Sub-produk tidak ditemukan." };
+    subProductId = sub.id;
+  }
+  const stage: HistoryStage | null = asStage(stageRaw) ?? STAGE_FOR_KIND[kind];
 
   const geoRows: Array<{ lat: number; lng: number; label: string | null }> = [];
   for (let i = 0; formData.has(`geoLat[${i}]`); i++) {
@@ -629,10 +671,11 @@ export async function addProductHistory(formData: FormData): Promise<AddProductH
   const history: ProductHistory = {
     id: newId("HIS"),
     productId: product.id,
-    subProductId: null,
+    subProductId,
     actorId: user.id,
     actor: user.name,
     kind,
+    stage,
     note,
     quantityDelta: 0,
     createdAt: new Date().toISOString(),
@@ -657,7 +700,204 @@ export async function addProductHistory(formData: FormData): Promise<AddProductH
   revalidatePath("/");
   revalidatePath("/pengepul");
   revalidatePath(`/produk/${product.id}`);
+  revalidatePath(`/pengepul/produk/${product.id}`);
   return { ok: true, detail: detail ?? undefined, products };
+}
+
+/* ---------- Tambah sub-product ke produk existing ---------- */
+
+export type AddSubProductResult = {
+  error?: string;
+  ok?: boolean;
+  detail?: ProductDetail;
+  subProductId?: string;
+};
+
+export async function addSubProductAction(
+  productId: string,
+  formData: FormData
+): Promise<AddSubProductResult> {
+  const user = await currentUser();
+  if (!user) return { error: "Masuk dulu untuk menambah sumber." };
+  if (user.accountType !== "pengepul") return { error: "Hanya akun pengepul yang bisa menambah sumber." };
+
+  const product = await getProduct(productId);
+  if (!product) return { error: "Produk tidak ditemukan." };
+  if (product.pengepulId !== user.id) return { error: "Produk ini bukan milikmu." };
+
+  const fishermanName = String(formData.get("fishermanName") || "").trim();
+  if (!fishermanName) return { error: "Nama nelayan wajib diisi." };
+  const quantity = Number(formData.get("quantity"));
+  if (Number.isNaN(quantity) || quantity < 0) return { error: "Kuantitas tidak valid." };
+  const priceRaw = Number(formData.get("price"));
+  const price = Number.isNaN(priceRaw) ? product.price : priceRaw;
+  const minOrderRaw = Number(formData.get("minOrderKg"));
+  const minOrderKg = Number.isFinite(minOrderRaw) && minOrderRaw > 0 ? minOrderRaw : 1;
+  const grade: ProductGrade | null = asGrade(String(formData.get("grade") || ""));
+  const latRaw = String(formData.get("geoLat") || "").trim();
+  const lngRaw = String(formData.get("geoLng") || "").trim();
+  const geoLat = latRaw ? Number(latRaw) : null;
+  const geoLng = lngRaw ? Number(lngRaw) : null;
+  if ((geoLat === null) !== (geoLng === null)) {
+    return { error: "Lokasi geo harus diisi lengkap atau kosong keduanya." };
+  }
+  const cleanHandling = formData.get("qualityClean") === "on";
+  const packaging = String(formData.get("qualityPackaging") || "Standar pengepul").trim() || "Standar pengepul";
+  const temperature = String(formData.get("qualityTemperature") || "").trim() || null;
+  const dispatch = String(formData.get("qualityDispatch") || "").trim() || null;
+  const documentFiles: File[] = [];
+  for (const value of formData.getAll("documents[]")) {
+    if (value && typeof value === "object" && "size" in value && typeof value.size === "number" && value.size > 0) {
+      documentFiles.push(value as File);
+    }
+  }
+  const note = String(formData.get("historyNote") || "").trim() || null;
+
+  const now = new Date();
+  const subId = newId("SUB");
+  const sub: SubProduct = {
+    id: subId,
+    productId: product.id,
+    name: String(formData.get("name") || "").trim() || product.name,
+    fishermanName,
+    quantity,
+    price,
+    minOrderKg,
+    grade,
+    quality: { cleanHandling, packaging, temperature, dispatch },
+    unit: "kg",
+    geoLat,
+    geoLng,
+    createdAt: now.toISOString(),
+  };
+  try {
+    await insertSubProduct(sub);
+  } catch (err: unknown) {
+    const message = errorMessage(err);
+    if (message.toLowerCase().includes("unique") || message.toLowerCase().includes("duplicate")) {
+      return { error: `Nelayan ${fishermanName} sudah ada untuk produk ini.` };
+    }
+    throw err;
+  }
+  const history: ProductHistory = {
+    id: newId("HIS"),
+    productId: product.id,
+    subProductId: subId,
+    actorId: user.id,
+    actor: user.name,
+    kind: "tambah_produk",
+    stage: "estimasi_tangkap",
+    note,
+    quantityDelta: quantity,
+    createdAt: now.toISOString(),
+    points: [],
+    documents: [],
+  };
+  await insertHistory(history);
+  if (geoLat !== null && geoLng !== null) {
+    await insertGeoPoint({
+      id: newId("GEO"),
+      historyId: history.id,
+      lat: geoLat,
+      lng: geoLng,
+      label: `Nelayan ${fishermanName}`,
+      createdAt: now.toISOString(),
+    });
+  }
+  await uploadHistoryDocuments(documentFiles, history.id);
+
+  const detail = await getProductDetail(product.id);
+  revalidatePath("/");
+  revalidatePath("/pengepul");
+  revalidatePath(`/produk/${product.id}`);
+  revalidatePath(`/pengepul/produk/${product.id}`);
+  revalidatePath(`/pengepul/produk/${product.id}/sub/${subId}`);
+  return { ok: true, detail: detail ?? undefined, subProductId: subId };
+}
+
+/* ---------- Tambah event history ke sub-product ---------- */
+
+export type AddHistoryEventResult = {
+  error?: string;
+  ok?: boolean;
+  detail?: ProductDetail;
+  eventId?: string;
+};
+
+export async function addHistoryEventAction(
+  productId: string,
+  subProductId: string,
+  formData: FormData
+): Promise<AddHistoryEventResult> {
+  const user = await currentUser();
+  if (!user) return { error: "Masuk dulu untuk mencatat event." };
+  if (user.accountType !== "pengepul") return { error: "Hanya akun pengepul yang bisa mencatat event." };
+
+  const product = await getProduct(productId);
+  if (!product) return { error: "Produk tidak ditemukan." };
+  if (product.pengepulId !== user.id) return { error: "Produk ini bukan milikmu." };
+
+  const sub = await getSubProduct(subProductId);
+  if (!sub || sub.productId !== productId) return { error: "Sub-produk tidak ditemukan." };
+
+  const stageRaw = String(formData.get("stage") || "").trim();
+  const stage = asStage(stageRaw);
+  if (!stage) return { error: "Pilih stage yang valid." };
+  const note = String(formData.get("note") || "").trim() || null;
+  const quantityDeltaRaw = Number(formData.get("quantityDelta"));
+  const quantityDelta = Number.isFinite(quantityDeltaRaw) ? quantityDeltaRaw : 0;
+
+  const geoRows: Array<{ lat: number; lng: number; label: string | null }> = [];
+  for (let i = 0; formData.has(`geoLat[${i}]`); i++) {
+    const lat = Number(formData.get(`geoLat[${i}]`));
+    const lng = Number(formData.get(`geoLng[${i}]`));
+    const label = String(formData.get(`geoLabel[${i}]`) || "").trim() || null;
+    if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+      geoRows.push({ lat, lng, label });
+    }
+  }
+  const documentFiles: File[] = [];
+  for (const value of formData.getAll("documents[]")) {
+    if (value && typeof value === "object" && "size" in value && typeof value.size === "number" && value.size > 0) {
+      documentFiles.push(value as File);
+    }
+  }
+
+  const now = new Date();
+  const history: ProductHistory = {
+    id: newId("HIS"),
+    productId: product.id,
+    subProductId: sub.id,
+    actorId: user.id,
+    actor: user.name,
+    kind: "tambah_produk",
+    stage,
+    note,
+    quantityDelta,
+    createdAt: now.toISOString(),
+    points: [],
+    documents: [],
+  };
+  await insertHistory(history);
+  for (const point of geoRows) {
+    await insertGeoPoint({
+      id: newId("GEO"),
+      historyId: history.id,
+      lat: point.lat,
+      lng: point.lng,
+      label: point.label,
+      createdAt: now.toISOString(),
+    });
+  }
+  await uploadHistoryDocuments(documentFiles, history.id);
+
+  const detail = await getProductDetail(product.id);
+  revalidatePath("/");
+  revalidatePath("/pengepul");
+  revalidatePath(`/produk/${product.id}`);
+  revalidatePath(`/pengepul/produk/${product.id}`);
+  revalidatePath(`/pengepul/produk/${product.id}/sub/${sub.id}`);
+  return { ok: true, detail: detail ?? undefined, eventId: history.id };
 }
 
 export type DeleteProductResult = {
