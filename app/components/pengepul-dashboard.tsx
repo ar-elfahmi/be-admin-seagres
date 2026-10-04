@@ -118,6 +118,8 @@ interface FishermanRowState {
   fishermanName: string;
   quantity: string;
   price: string;
+  minOrderKg: string;
+  grade: string;
   qualityClean: boolean;
   qualityPackaging: string;
   qualityTemperature: string;
@@ -127,6 +129,13 @@ interface FishermanRowState {
   files: File[];
 }
 
+const PACKAGING_OPTIONS = [
+  "Es & box food grade",
+  "Keranjang bersih",
+  "Kemasan olahan tersegel",
+  "Standar pengepul",
+];
+
 function newFishermanRow(): FishermanRowState {
   return {
     id: Math.random().toString(36).slice(2, 10),
@@ -134,8 +143,10 @@ function newFishermanRow(): FishermanRowState {
     fishermanName: "",
     quantity: "0",
     price: "",
+    minOrderKg: "1",
+    grade: "",
     qualityClean: true,
-    qualityPackaging: "Es & box food grade",
+    qualityPackaging: PACKAGING_OPTIONS[0],
     qualityTemperature: "",
     qualityDispatch: "",
     geoLat: "",
@@ -165,6 +176,8 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
       data.set(`fishermanName[${index}]`, row.fishermanName);
       data.set(`subQuantity[${index}]`, row.quantity);
       data.set(`subPrice[${index}]`, row.price);
+      data.set(`minOrderKg[${index}]`, row.minOrderKg);
+      if (row.grade) data.set(`grade[${index}]`, row.grade);
       if (row.qualityClean) data.set(`qualityClean[${index}]`, "on");
       data.set(`qualityPackaging[${index}]`, row.qualityPackaging);
       data.set(`qualityTemperature[${index}]`, row.qualityTemperature);
@@ -294,6 +307,32 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
                   onChange={(event) => updateRow(row.id, { price: event.target.value })}
                   placeholder="ex: 28000"
                 />
+              </label>
+            </div>
+            <div className="form-grid">
+              <label>
+                Minimum pembelian (kg)
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={row.minOrderKg}
+                  onChange={(event) => updateRow(row.id, { minOrderKg: event.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Grade <small>(opsional)</small>
+                <select
+                  value={row.grade}
+                  onChange={(event) => updateRow(row.id, { grade: event.target.value })}
+                >
+                  <option value="">— tanpa grade —</option>
+                  <option value="A">A (terbaik)</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                </select>
               </label>
             </div>
             <div className="form-grid">
