@@ -2879,11 +2879,11 @@ a {
 }
 @media (max-width: 600px) {
   .stat-strip { grid-template-columns: 1fr; }
-  .pcr-card-row .pcr-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-right: 0; }
-  .pcr-card-row .pcr-thumb { width: 100%; height: 140px; flex: 0 0 auto; border-radius: var(--radius-sm); }
-  .pcr-card-row .pcr-menu { position: absolute; top: 8px; right: 8px; }
-  .pcr-card-row .pcr-info strong { white-space: normal; }
-  .pcr-card-row .pcr-info small { white-space: normal; }
+  .pengepul-shell .product-card-row .pcr-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-right: 0; }
+  .pengepul-shell .product-card-row .pcr-thumb { width: 100%; height: 140px; flex: 0 0 auto; border-radius: var(--radius-sm); }
+  .pengepul-shell .product-card-row .pcr-menu { position: absolute; top: 8px; right: 8px; }
+  .pengepul-shell .product-card-row .pcr-info strong { white-space: normal; }
+  .pengepul-shell .product-card-row .pcr-info small { white-space: normal; }
 }
 .dashboard-grid {
   display: grid;
