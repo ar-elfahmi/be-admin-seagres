@@ -8,10 +8,12 @@ import {
   Check,
   ChevronRight,
   Clock,
+  EllipsisVertical,
   Eye,
   ListOrdered,
   LogOut,
   MapPin,
+  Minus,
   Package,
   Plus,
   Scale,
@@ -24,11 +26,12 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   createProduct,
   deleteProductAction,
   logout,
+  updateProductQuantity,
 } from "../actions";
 import type {
   HistoryKind,
@@ -462,12 +465,45 @@ function TrendChart({ series }: { series: number[] }) {
 interface ProductCardProps {
   product: ProductDetail;
   onDeleted: (id: string) => void;
+  onSold: (products: ProductDetail[]) => void;
 }
-function ProductCard({ product, onDeleted }: ProductCardProps) {
+function ProductCard({ product, onDeleted, onSold }: ProductCardProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmStep, setConfirmStep] = useState<0 | 1>(0);
+  const [sellOpen, setSellOpen] = useState(false);
+  const [subId, setSubId] = useState(product.subProducts[0]?.id ?? "");
+  const [amount, setAmount] = useState("1");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDown(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+        setConfirmStep(0);
+      }
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        setConfirmStep(0);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
   async function handleDelete() {
-    if (!window.confirm(`Hapus "${product.name}"? Stok ${product.available.toFixed(1)} kg ikut terhapus dan tidak bisa dikembalikan.`)) return;
+    if (confirmStep === 0) {
+      setConfirmStep(1);
+      return;
+    }
     setBusy(true);
     try {
       const res = await deleteProductAction(product.id);
@@ -476,6 +512,35 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
         return;
       }
       onDeleted(product.id);
+    } finally {
+      setBusy(false);
+      setMenuOpen(false);
+      setConfirmStep(0);
+    }
+  }
+
+  async function handleSell(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    const qty = Number(amount);
+    if (!subId) {
+      setError("Pilih sumber nelayan dulu.");
+      return;
+    }
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setError("Masukkan jumlah jual lebih dari 0 kg.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await updateProductQuantity(product.id, subId, "jual", qty);
+      if (res?.error) {
+        setError(res.error);
+        return;
+      }
+      if (res.products) onSold(res.products);
+      setSellOpen(false);
+      setAmount("1");
     } finally {
       setBusy(false);
     }
@@ -499,6 +564,48 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
             <span className="price-chip">Rp{money.format(product.price)}/kg</span>
           </div>
         </div>
+        <div className="pcr-menu" ref={menuRef}>
+          <button
+            type="button"
+            className="icon-button pcr-kebab"
+            aria-label={`Opsi ${product.name}`}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            onClick={() => {
+              setMenuOpen((v) => !v);
+              setConfirmStep(0);
+            }}
+          >
+            <EllipsisVertical />
+          </button>
+          {menuOpen ? (
+            <div className="pcr-menu-pop" role="menu">
+              {confirmStep === 0 ? (
+                <button type="button" role="menuitem" className="pcr-menu-danger" onClick={handleDelete}>
+                  <Trash2 /> Hapus produk
+                </button>
+              ) : (
+                <>
+                  <p className="pcr-menu-warn">
+                    Hapus “{product.name}”? Stok {product.available.toFixed(1)} kg ikut hilang permanen.
+                  </p>
+                  <button type="button" role="menuitem" className="pcr-menu-danger solid" onClick={handleDelete} disabled={busy}>
+                    <Trash2 /> {busy ? "Menghapus…" : "Ya, hapus permanen"}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="pcr-menu-cancel"
+                    onClick={() => setConfirmStep(0)}
+                    disabled={busy}
+                  >
+                    Batal
+                  </button>
+                </>
+              )}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="pcr-actions">
@@ -518,14 +625,52 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
         </Link>
         <button
           type="button"
-          onClick={handleDelete}
-          className="ghost danger"
-          disabled={busy}
-          aria-label={`Hapus ${product.name}`}
+          onClick={() => {
+            setSubId(product.subProducts[0]?.id ?? "");
+            setAmount("1");
+            setError(null);
+            setSellOpen(true);
+          }}
+          className="ghost"
+          disabled={!product.subProducts.length}
+          aria-label={`Jual ${product.name}`}
+          title={product.subProducts.length ? undefined : "Belum ada sumber nelayan"}
         >
-          <Trash2 /> {busy ? "Menghapus…" : "Hapus"}
+          <Minus /> Jual
         </button>
       </div>
+
+      {sellOpen ? (
+        <Modal title={`Jual — ${product.name}`} onClose={() => setSellOpen(false)}>
+          <form className="form" onSubmit={handleSell}>
+            {error ? <div className="form-error">{error}</div> : null}
+            <label>
+              Sumber nelayan
+              <select value={subId} onChange={(event) => setSubId(event.target.value)} required>
+                {product.subProducts.map((sub) => (
+                  <option key={sub.id} value={sub.id}>
+                    {sub.fishermanName} · {sub.quantity.toFixed(1)} kg
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Jumlah jual (kg)
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                required
+              />
+            </label>
+            <button className="primary-button form-submit" type="submit" disabled={busy}>
+              {busy ? "Menyimpan…" : <><Minus /> Catat penjualan</>}
+            </button>
+          </form>
+        </Modal>
+      ) : null}
     </article>
   );
 }
@@ -772,7 +917,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
         <section className="product-grid">
           {filtered.length ? (
             filtered.map((product) => (
-              <ProductCard key={product.id} product={product} onDeleted={(id) => setList((cur) => cur.filter((p) => p.id !== id))} />
+              <ProductCard key={product.id} product={product} onDeleted={(id) => setList((cur) => cur.filter((p) => p.id !== id))} onSold={(products) => setList(products)} />
             ))
           ) : (
             <div className="empty-state large">

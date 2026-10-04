@@ -2765,7 +2765,7 @@ a {
   gap: 12px;
   box-shadow: var(--shadow-sm);
 }
-.pcr-top { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: center; }
+.pcr-top { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: center; position: relative; padding-right: 34px; }
 .pcr-thumb {
   position: relative;
   width: 64px;
@@ -2798,9 +2798,21 @@ a {
 .pcr-actions .ghost:hover { border-color: var(--primary); color: var(--primary); }
 .pcr-actions .primary-mini { font-weight: 700; border-color: var(--primary); background: var(--primary); color: #fff; }
 .pcr-actions .primary-mini:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
-.pcr-actions .ghost.danger { color: #b91c1c; border-color: #fecaca; }
-.pcr-actions .ghost.danger:hover { border-color: #b91c1c; color: #b91c1c; }
 .pcr-actions .ghost:disabled, .pcr-actions .primary-mini:disabled { opacity: 0.6; cursor: not-allowed; }
+.pcr-menu { position: absolute; top: 0; right: 0; }
+.pcr-kebab { width: 30px; height: 30px; color: var(--muted); }
+.pcr-kebab svg { width: 18px; height: 18px; }
+.pcr-menu-pop { position: absolute; top: 34px; right: 0; z-index: 20; min-width: 220px; max-width: 260px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--shadow, 0 8px 24px rgba(15, 40, 80, 0.12)); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.pcr-menu-pop button { display: inline-flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 10px; font-size: 12.5px; font-weight: 600; border: 0; border-radius: 8px; background: transparent; cursor: pointer; color: var(--ink); }
+.pcr-menu-pop button svg { width: 15px; height: 15px; flex: 0 0 15px; }
+.pcr-menu-danger { color: #b91c1c; }
+.pcr-menu-danger:hover:not(:disabled) { background: #fef2f2; }
+.pcr-menu-danger.solid { background: #b91c1c; color: #fff; justify-content: center; }
+.pcr-menu-danger.solid:hover:not(:disabled) { background: #991b1b; }
+.pcr-menu-cancel { justify-content: center; color: var(--muted); }
+.pcr-menu-cancel:hover:not(:disabled) { background: var(--surface-2, #f1f5f9); color: var(--ink); }
+.pcr-menu-warn { margin: 2px 2px 4px; font-size: 12px; line-height: 1.45; color: var(--ink-2, #475569); }
+.pcr-menu-pop button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 
 .dashboard-footer { display: flex; align-items: center; justify-content: space-between; padding: 16px 4px 8px; color: var(--muted); font-size: 12px; gap: 12px; flex-wrap: wrap; }
