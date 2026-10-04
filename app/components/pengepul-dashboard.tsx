@@ -523,12 +523,13 @@ function ProductCard({ product, onDeleted, onSold }: ProductCardProps) {
     event.preventDefault();
     setError(null);
     const qty = Number(amount);
-    if (!subId) {
-      setError("Pilih sumber nelayan dulu.");
-      return;
-    }
     if (!Number.isFinite(qty) || qty <= 0) {
       setError("Masukkan jumlah jual lebih dari 0 kg.");
+      return;
+    }
+    const selected = product.subProducts.find((sub) => sub.id === subId);
+    if (selected && qty > selected.quantity) {
+      setError(`Stok ${selected.fishermanName} tinggal ${selected.quantity.toFixed(1)} kg.`);
       return;
     }
     setBusy(true);
@@ -660,6 +661,7 @@ function ProductCard({ product, onDeleted, onSold }: ProductCardProps) {
                 type="number"
                 min="0.1"
                 step="0.1"
+                max={product.subProducts.find((sub) => sub.id === subId)?.quantity.toFixed(1)}
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
                 required
