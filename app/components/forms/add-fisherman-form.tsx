@@ -140,13 +140,7 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
         </div>
       ) : null}
       {error ? <div className="form-error">{error}</div> : null}
-      <div className="form-grid">
-        {lockedProductName ? null : (
-          <label>
-            Nama produk <small>(opsional, default nama produk)</small>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex: Bandeng segar" />
-          </label>
-        )}
+      {lockedProductName ? (
         <label>
           Nama nelayan
           <input
@@ -156,7 +150,23 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
             required
           />
         </label>
-      </div>
+      ) : (
+        <div className="form-grid">
+          <label>
+            Nama produk <small>(opsional, default nama produk)</small>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex: Bandeng segar" />
+          </label>
+          <label>
+            Nama nelayan
+            <input
+              value={fishermanName}
+              onChange={(e) => setFishermanName(e.target.value)}
+              placeholder="ex: Pak Hasan"
+              required
+            />
+          </label>
+        </div>
+      )}
       <div className="form-grid">
         <label>
           Kuantitas (kg)
