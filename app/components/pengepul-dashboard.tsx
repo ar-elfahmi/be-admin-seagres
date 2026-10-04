@@ -42,6 +42,7 @@ import type {
 } from "../../lib/types";
 import type { RecentActivity } from "../../lib/queries";
 import SeagresLogo from "./seagres-logo";
+import AddFishermanForm from "./forms/add-fisherman-form";
 
 interface PengepulDashboardProps {
   user: PublicUser;
@@ -463,182 +464,6 @@ function TrendChart({ series }: { series: number[] }) {
     </svg>
   );
 }
-function ReceiveFishermanForm({ product, onDone }: { product: ProductDetail; onDone: (detail: ProductDetail) => void }) {
-  const [fishermanName, setFishermanName] = useState("");
-  const [quantity, setQuantity] = useState("0");
-  const [price, setPrice] = useState("");
-  const [minOrderKg, setMinOrderKg] = useState("1");
-  const [grade, setGrade] = useState("");
-  const [lat, setLat] = useState("");
-  const [lng, setLng] = useState("");
-  const [cleanHandling, setCleanHandling] = useState(true);
-  const [packaging, setPackaging] = useState("Es & box food grade");
-  const [temperature, setTemperature] = useState("");
-  const [dispatch, setDispatch] = useState("");
-  const [note, setNote] = useState("");
-  const [docs, setDocs] = useState<{ id: string; name: string; size: number; file: File }[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function captureGeolocation() {
-    if (!navigator.geolocation) {
-      setError("Browser tidak mendukung geolocation.");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(String(pos.coords.latitude));
-        setLng(String(pos.coords.longitude));
-      },
-      () => setError("Tidak bisa mendapatkan lokasi."),
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    if (!fishermanName.trim()) {
-      setError("Nama nelayan wajib diisi.");
-      return;
-    }
-    const data = new FormData();
-    data.set("fishermanName", fishermanName.trim());
-    data.set("name", product.name);
-    data.set("quantity", quantity);
-    data.set("price", price);
-    data.set("minOrderKg", minOrderKg);
-    if (grade) data.set("grade", grade);
-    if (lat) data.set("geoLat", lat);
-    if (lng) data.set("geoLng", lng);
-    if (cleanHandling) data.set("qualityClean", "on");
-    data.set("qualityPackaging", packaging);
-    data.set("qualityTemperature", temperature);
-    data.set("qualityDispatch", dispatch);
-    if (note) data.set("historyNote", note);
-    for (const entry of docs) data.append("documents[]", entry.file);
-    setBusy(true);
-    try {
-      const res = await addSubProductAction(product.id, data);
-      if (res?.error) {
-        setError(res.error);
-        return;
-      }
-      const detail = res.detail;
-      if (detail) {
-        onDone(detail);
-        return;
-      }
-      window.location.reload();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form className="form" onSubmit={submit}>
-      {error ? <div className="form-error">{error}</div> : null}
-      <div className="sell-banner">
-        <Truck aria-hidden="true" />
-        <p>
-          <strong>{product.name} · {product.type} · {product.size}</strong>
-          <span>Hanya tambah sumber nelayan ke produk ini.</span>
-        </p>
-      </div>
-      <div className="form-grid">
-        <label>
-          Nama nelayan
-          <input value={fishermanName} onChange={(e) => setFishermanName(e.target.value)} placeholder="ex: Pak Hasan" required />
-        </label>
-        <label>
-          Kuantitas (kg)
-          <input type="number" min="0" step="0.1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
-        </label>
-      </div>
-      <div className="form-grid">
-        <label>
-          Harga dari nelayan (Rp/kg)
-          <input type="number" min="0" step="500" value={price} onChange={(e) => setPrice(e.target.value)} placeholder={`default ${money.format(product.price)}`} />
-        </label>
-        <label>
-          Minimum pembelian (kg)
-          <input type="number" min="0.1" step="0.1" value={minOrderKg} onChange={(e) => setMinOrderKg(e.target.value)} required />
-        </label>
-      </div>
-      <div className="form-grid">
-        <label>
-          Grade <small>(opsional)</small>
-          <select value={grade} onChange={(e) => setGrade(e.target.value)}>
-            <option value="">— tanpa grade —</option>
-            <option value="A">A (terbaik)</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-            <option value="D">D</option>
-          </select>
-        </label>
-        <label>
-          Kemasan
-          <select value={packaging} onChange={(e) => setPackaging(e.target.value)}>
-            <option>Es &amp; box food grade</option>
-            <option>Keranjang bersih</option>
-            <option>Kemasan olahan tersegel</option>
-            <option>Standar pengepul</option>
-          </select>
-        </label>
-      </div>
-      <div className="form-grid">
-        <label>
-          Latitude
-          <input type="number" step="0.000001" value={lat} onChange={(e) => setLat(e.target.value)} placeholder="opsional" />
-        </label>
-        <label>
-          Longitude
-          <input type="number" step="0.000001" value={lng} onChange={(e) => setLng(e.target.value)} placeholder="opsional" />
-        </label>
-      </div>
-      <fieldset className="quality-block">
-        <legend>Mutu &amp; penanganan</legend>
-        <label className="check-line">
-          <input type="checkbox" checked={cleanHandling} onChange={(e) => setCleanHandling(e.target.checked)} />
-          Penanganan bersih
-        </label>
-        <div className="form-grid">
-          <label>
-            Suhu penyimpanan
-            <input value={temperature} onChange={(e) => setTemperature(e.target.value)} placeholder="ex: 0–4 °C" />
-          </label>
-          <label>
-            Metode pengiriman
-            <input value={dispatch} onChange={(e) => setDispatch(e.target.value)} placeholder="ex: Mobil box berpendingin" />
-          </label>
-        </div>
-      </fieldset>
-      <button className="link-button" type="button" onClick={captureGeolocation}>
-        <MapPin /> Ambil titik lokasi dari browser
-      </button>
-      <label>
-        Dokumen pendukung (foto / PDF)
-        <input
-          className="file-input"
-          type="file"
-          multiple
-          accept="image/*,application/pdf"
-          onChange={(e) => {
-            const files = Array.from(e.currentTarget.files ?? []);
-            setDocs((cur) => cur.concat(files.map((file) => ({ id: Math.random().toString(36).slice(2, 10), name: file.name, size: file.size, file }))));
-          }}
-        />
-      </label>
-      <label>
-        Catatan event <small>(opsional)</small>
-        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="ex: Hasil tangkapan pagi ini" />
-      </label>
-      <button className="primary-button form-submit" type="submit" disabled={busy}>
-        {busy ? "Menyimpan…" : <><Plus /> Catat sumber nelayan</>}
-      </button>
-    </form>
-  );
-}
 interface ProductCardProps {
   product: ProductDetail;
   onDeleted: (id: string) => void;
@@ -859,7 +684,7 @@ function ProductCard({ product, onDeleted, onSold, onReceived }: ProductCardProp
       ) : null}
       {receiveOpen ? (
         <Modal title={`Terima — ${product.name}`} onClose={() => setReceiveOpen(false)}>
-          <ReceiveFishermanForm product={product} onDone={(detail) => { onReceived(detail); setReceiveOpen(false); }} />
+          <AddFishermanForm productId={product.id} lockedProductName={`${product.name} · ${product.type} · ${product.size}`} onSaved={(detail) => { onReceived(detail); setReceiveOpen(false); }} />
         </Modal>
       ) : null}
     </article>

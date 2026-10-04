@@ -4,9 +4,12 @@ import { Plus, MapPin, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { addSubProductAction } from "../../actions";
+import type { ProductDetail } from "../../../lib/types";
 
 interface Props {
   productId: string;
+  lockedProductName?: string;
+  onSaved?: (detail: ProductDetail) => void;
 }
 
 interface DocEntry {
@@ -26,8 +29,7 @@ const PACKAGING_OPTIONS = [
   "Kemasan olahan tersegel",
   "Standar pengepul",
 ];
-
-export default function AddFishermanForm({ productId }: Props) {
+export default function AddFishermanForm({ productId, lockedProductName, onSaved }: Props) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [fishermanName, setFishermanName] = useState("");
@@ -120,6 +122,7 @@ export default function AddFishermanForm({ productId }: Props) {
       setNote("");
       setDocs([]);
       router.refresh();
+      if (res.detail) onSaved?.(res.detail);
     } finally {
       setBusy(false);
     }
@@ -127,6 +130,15 @@ export default function AddFishermanForm({ productId }: Props) {
 
   return (
     <form className="form" onSubmit={submit}>
+      {lockedProductName ? (
+        <div className="sell-banner">
+          <Plus aria-hidden="true" />
+          <p>
+            <strong>{lockedProductName}</strong>
+            <span>Hanya tambah sumber nelayan ke produk ini.</span>
+          </p>
+        </div>
+      ) : null}
       {error ? <div className="form-error">{error}</div> : null}
       <div className="form-grid">
         <label>
