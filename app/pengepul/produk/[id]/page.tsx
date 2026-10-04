@@ -17,8 +17,11 @@ import { currentUser } from "@/lib/session";
 import { getProductDetail } from "@/lib/queries";
 import SeagresLogo from "@/app/components/seagres-logo";
 import AddFishermanForm from "@/app/components/forms/add-fisherman-form";
-import { isLocalAsset } from "@/app/components/pengepul-dashboard";
 import { HISTORY_STAGE_LABELS } from "@/lib/types";
+
+function isLocalAsset(src: string): boolean {
+  return src.startsWith("/products/") || src.startsWith("/uploads/");
+}
 
 export const dynamic = "force-dynamic";
 
