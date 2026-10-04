@@ -29,6 +29,7 @@ import {
   TrendingUp,
   Truck,
   UserRound,
+  Users,
   X,
 } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
@@ -545,6 +546,7 @@ function TrendChart({ series }: { series: number[] }) {
 function ProductCard({ product, onChanged }: ProductCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [subOpen, setSubOpen] = useState(false);
   const traceUrl = typeof window === "undefined" ? `/produk/${product.id}` : `${window.location.origin}/produk/${product.id}`;
 
   async function del() {
@@ -607,18 +609,31 @@ function ProductCard({ product, onChanged }: ProductCardProps) {
         </div>
       </div>
 
-      <div className="pcr-subproducts">
-        <h4>Sumber nelayan</h4>
-        {product.subProducts.length ? (
-          <div className="fisherman-grid">
-            {product.subProducts.map((sub) => (
-              <FishermanControl key={sub.id} productId={product.id} sub={sub} />
-            ))}
-          </div>
-        ) : (
-          <p className="hint">Belum ada sub-produk.</p>
-        )}
-      </div>
+      {subOpen ? (
+        <div className="pcr-subproducts">
+          <h4>Sumber nelayan</h4>
+          {product.subProducts.length ? (
+            <div className="fisherman-grid">
+              {product.subProducts.map((sub) => (
+                <FishermanControl key={sub.id} productId={product.id} sub={sub} />
+              ))}
+            </div>
+          ) : (
+            <p className="hint">Belum ada sub-produk.</p>
+          )}
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        className="pcr-toggle"
+        onClick={() => setSubOpen((value) => !value)}
+        aria-expanded={subOpen}
+      >
+        <Users />
+        {subOpen ? "Sembunyikan" : "Lihat"} sumber渔民 ({product.subProducts.length})
+        <ChevronDown className={subOpen ? "rot" : ""} />
+      </button>
 
       <button
         type="button"
