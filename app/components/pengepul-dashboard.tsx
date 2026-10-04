@@ -631,7 +631,7 @@ function ProductCard({ product, onChanged }: ProductCardProps) {
         aria-expanded={subOpen}
       >
         <Users />
-        {subOpen ? "Sembunyikan" : "Lihat"} sumber渔民 ({product.subProducts.length})
+        {subOpen ? "Sembunyikan" : "Lihat"} sumber ({product.subProducts.length})
         <ChevronDown className={subOpen ? "rot" : ""} />
       </button>
 
