@@ -456,6 +456,11 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
   }
 
   const fishermen = readFishermanRows(formData);
+  const badPrice = fishermen.find((row) => row.fishermanName && (row.price < 1000));
+  if (badPrice) {
+    return { error: `Harga per kg untuk ${badPrice.fishermanName} wajib diisi, minimal Rp1.000.` };
+  }
+
   if (!fishermen.length) {
     return { error: "Tambahkan minimal satu nelayan sumber." };
   }
@@ -731,7 +736,10 @@ export async function addSubProductAction(
   const quantity = Number(formData.get("quantity"));
   if (Number.isNaN(quantity) || quantity < 0) return { error: "Kuantitas tidak valid." };
   const priceRaw = Number(formData.get("price"));
-  const price = Number.isNaN(priceRaw) ? product.price : priceRaw;
+  if (!formData.get("price") || Number.isNaN(priceRaw) || priceRaw < 1000) {
+    return { error: "Harga per kg wajib diisi, minimal Rp1.000." };
+  }
+  const price = priceRaw;
   const minOrderRaw = Number(formData.get("minOrderKg"));
   const minOrderKg = Number.isFinite(minOrderRaw) && minOrderRaw > 0 ? minOrderRaw : 1;
   const grade: ProductGrade | null = asGrade(String(formData.get("grade") || ""));

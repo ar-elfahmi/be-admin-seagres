@@ -180,14 +180,15 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
           />
         </label>
         <label>
-          Harga per kg
+          Harga per kg <small>(wajib)</small>
           <input
             type="number"
-            min="0"
+            min="1000"
             step="500"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
-            placeholder="opsional, default harga produk"
+            placeholder="ex: 28000"
+            required
           />
         </label>
       </div>
