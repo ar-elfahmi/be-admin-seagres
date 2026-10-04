@@ -14,7 +14,8 @@ import {
 import { currentUser } from "@/lib/session";
 import { getProductDetail } from "@/lib/queries";
 import SeagresLogo from "@/app/components/seagres-logo";
-import TerimaButton from "./terima-button";
+import MarketFooter from "@/app/components/market-footer";
+ import TerimaButton from "./terima-button";
 import TraceCard from "@/app/components/trace-card";
 import TambahRiwayatButton from "./tambah-riwayat-button";
 import { type ProductDetail, type ProductGrade, type ProductHistory } from "@/lib/types";
@@ -172,7 +173,7 @@ export default async function PengepulProdukPage({ params }: PageProps) {
             </div>
           </div>
 
-          <section className="grade-summary" aria-label="Ringkasan harga per grade">
+          <section className="grade-summary" id="grade-summary" aria-label="Ringkasan harga per grade">
             <h2 className="lot-steps-title">Harga per grade</h2>
             {gradeRows.length ? (
               <div className="grade-summary-grid">
@@ -196,7 +197,7 @@ export default async function PengepulProdukPage({ params }: PageProps) {
             )}
           </section>
 
-          <section className="sub-products">
+          <section className="sub-products" id="receipt-list">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <h2 className="lot-steps-title">
                 <Package aria-hidden="true" /> Sumber nelayan ({groups.length} nelayan ·{" "}
@@ -325,10 +326,29 @@ export default async function PengepulProdukPage({ params }: PageProps) {
         </div>
       </article>
 
-      <p className="lot-foot-note">
-        Halaman kelola pengepul SeaGres. Sub-route publik untuk pelacakan tetap di{" "}
-        <Link href={`/produk/${detail.id}`}>/produk/{detail.id}</Link>.
-      </p>
+      <MarketFooter
+        tagline="Detail produk pengepul · kelola sumber & riwayat per nelayan."
+        groups={[
+          {
+            title: "Jelajah",
+            items: [
+              { label: "Penerimaan", href: "#receipt-list" },
+              { label: "Ringkasan harga", href: "#grade-summary" },
+            ],
+          },
+          {
+            title: "Dasbor",
+            items: [
+              { label: "Kembali ke dasbor", href: "/dashboard" },
+              { label: "Halaman publik", href: `/produk/${detail.id}` },
+            ],
+          },
+          {
+            title: "Akun",
+            items: [{ label: `Profil ${user.name}`, href: "/dashboard#profile" }],
+          },
+        ]}
+      />
     </main>
   );
 }

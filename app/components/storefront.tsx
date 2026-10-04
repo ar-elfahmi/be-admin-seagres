@@ -45,6 +45,7 @@ import type {
   SubProduct,
 } from "../../lib/types";
 import SeagresLogo from "./seagres-logo";
+import MarketFooter from "./market-footer";
 import TraceCard from "./trace-card";
 
 interface SlideItem {
@@ -865,29 +866,36 @@ export default function Storefront({ user, initialProducts, initialOrders, price
             </section>
           </aside>
         </div>
-
-        <footer className="market-footer">
-          <div>
-            <SeagresLogo size={36} />
-            <p>Pasar hasil pesisir Gresik — dari pengepul langsung ke pembeli.</p>
-          </div>
-          <div>
-            <b>Jelajah</b>
-            <button type="button" onClick={() => goToId("produk-terbaru")}>Produk terbaru</button>
-            <button type="button" onClick={() => goToId("harga")}>Harga pesisir</button>
-            <button type="button" onClick={() => goToId("kategori")}>Kategori</button>
-          </div>
-          <div>
-            <b>{isCustomer ? "Belanja" : "Dasbor"}</b>
-            <button type="button" onClick={() => (isCustomer ? scrollToCatalog() : router.push("/dashboard"))}>{isCustomer ? "Cari produk segar" : "Buka dasbor pengepul"}</button>
-            <button type="button" onClick={() => setModal({ type: "orders" })}>{isCustomer ? "Pre-order saya" : "Pesanan masuk"}</button>
-          </div>
-          <div>
-            <b>Akun</b>
-            <button type="button" onClick={() => setModal({ type: "profile" })}>Profil {user.name}</button>
-            <button type="button" onClick={doLogout}>Keluar</button>
-          </div>
-        </footer>
+        <MarketFooter
+          tagline="Pasar hasil pesisir Gresik — dari pengepul langsung ke pembeli."
+          groups={[
+            {
+              title: "Jelajah",
+              items: [
+                { label: "Produk terbaru", onClick: () => goToId("produk-terbaru") },
+                { label: "Harga pesisir", onClick: () => goToId("harga") },
+                { label: "Kategori", onClick: () => goToId("kategori") },
+              ],
+            },
+            {
+              title: isCustomer ? "Belanja" : "Dasbor",
+              items: [
+                {
+                  label: isCustomer ? "Cari produk segar" : "Buka dasbor pengepul",
+                  onClick: isCustomer ? scrollToCatalog : () => router.push("/dashboard"),
+                },
+                { label: isCustomer ? "Pre-order saya" : "Pesanan masuk", onClick: () => setModal({ type: "orders" }) },
+              ],
+            },
+            {
+              title: "Akun",
+              items: [
+                { label: `Profil ${user.name}`, onClick: () => setModal({ type: "profile" }) },
+                { label: "Keluar", onClick: doLogout },
+              ],
+            },
+          ]}
+        />
       </div>
 
       <nav className="bottom-nav" aria-label="Navigasi seluler">

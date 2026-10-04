@@ -2315,16 +2315,25 @@ a {
   margin-bottom: 10px;
 }
 
-.market-footer button {
+.market-footer button,
+.market-footer .footer-action {
   display: block;
   color: var(--muted);
   font-size: 12.5px;
   margin-bottom: 6px;
   text-align: left;
+  text-decoration: none;
 }
 
-.market-footer button:hover {
+.market-footer button:hover,
+.market-footer .footer-action:hover {
   color: var(--primary);
+}
+
+/* Footer buyer dipakai di lot-page yang lebih sempit */
+.lot-page .market-footer {
+  width: min(840px, 100%);
+  margin: 32px auto 0;
 }
 
 /* ================= MOBILE BOTTOM NAV ================= */
@@ -2919,7 +2928,7 @@ a {
 .pcr-menu-pop button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 
-.dashboard-footer { display: flex; align-items: center; justify-content: space-between; padding: 16px 4px 8px; color: var(--muted); font-size: 12px; gap: 12px; flex-wrap: wrap; }
+
 
 .empty-state.large { padding: 48px 24px; gap: 12px; }
 .empty-state.large svg { width: 40px; height: 40px; }

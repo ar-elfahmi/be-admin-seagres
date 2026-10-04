@@ -45,7 +45,7 @@ import type {
 import type { RecentActivity } from "../../lib/queries";
 import SeagresLogo from "./seagres-logo";
 import AddFishermanForm from "./forms/add-fisherman-form";
-
+import MarketFooter from "./market-footer";
 interface PengepulDashboardProps {
   user: PublicUser;
   products: ProductDetail[];
@@ -886,7 +886,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
         </section>
 
         <section className="dashboard-grid dashboard-grid-rows">
-          <article className="dash-card trend-card">
+          <article className="dash-card trend-card" id="penjualan-chart">
             <header className="dash-card-head">
               <h3><TrendingUp aria-hidden="true" /> Tren penjualan</h3>
               <span className="dash-card-sub">12 periode terakhir · mock</span>
@@ -1010,7 +1010,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
           </button>
         </section>
 
-        <section className="product-grid" id="dashboard-products">
+        <section className="product-grid" id="produk-grid">
           {filtered.length ? (
             filtered.map((product) => (
               <ProductCard key={product.id} product={product} onDeleted={(id) => setList((cur) => cur.filter((p) => p.id !== id))} onSold={(products) => setList(products)} onReceived={(detail) => setList((cur) => cur.map((p) => (p.id === detail.id ? detail : p)))} />
@@ -1033,14 +1033,33 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
           )}
         </section>
 
-        <footer className="dashboard-footer">
-          <small>
-            <SeagresLogo size={20} showText={false} /> SeaGres · Pengepul pesisir Gresik
-          </small>
-          <small>© 2026 · dari banyak nelayan, satu jejak telusur</small>
-        </footer>
-      </div>
-
+        <MarketFooter
+          tagline="Dasbor pengepul · agregasi & telusur per nelayan."
+          groups={[
+            {
+              title: "Jelajah",
+              items: [
+                { label: "Ringkasan", onClick: () => scrollToId("dashboard-stats") },
+                { label: "Tren penjualan", onClick: () => scrollToId("penjualan-chart") },
+                { label: "Daftar produk", onClick: () => scrollToId("produk-grid") },
+              ],
+            },
+            {
+              title: "Dasbor",
+              items: [
+                { label: "Tambah produk", onClick: () => setModal("create") },
+                { label: "Pesanan masuk", onClick: () => setModal("orders") },
+              ],
+            },
+            {
+              title: "Akun",
+              items: [
+                { label: `Profil ${user.name}`, onClick: () => setModal("profile") },
+                { label: "Keluar", onClick: doLogout },
+              ],
+            },
+          ]}
+        />
       {notice ? (
         <div className={notice.isError ? "toast toast-error" : "toast"} role="status">
           <Check /> {notice.message}
@@ -1098,6 +1117,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
           </div>
         </Modal>
       ) : null}
+      </div>
 
       <nav className="bottom-nav" aria-label="Navigasi seluler pengepul">
         <button className="active" type="button" onClick={scrollToTop}>
