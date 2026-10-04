@@ -580,6 +580,7 @@ function ProductCard({ product, onDeleted, onSold }: ProductCardProps) {
               setMenuOpen((v) => !v);
               setConfirmStep(0);
             }}
+          >
             <Ellipsis />
           </button>
           {menuOpen ? (
