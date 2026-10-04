@@ -1,31 +1,98 @@
 -- SeaGres: reset demo + seed baru yang enak dilihat.
 --
--- Isi:
---   1) Hapus child-first semua data demo lama (history_documents/geo_points
---      -> product_history -> sub_products -> products -> orders -> lots ->
---      reports -> users/prices demo).
---   2) Cabut unique (product_id, fisherman_name) agar 1 nelayan boleh
---      punya banyak penerimaan.
---   3) Seed 2 akun demo (kredensial persis seed lama), 4 produk (semua tipe
---      filter: Bandeng/Udang/Kerang/Olahan), tiap produk 2-3 nelayan dan
---      1 nelayan punya 2-3 penerimaan (sub_products beda id/created_at),
---      tiap penerimaan 1 history tambah_produk + 1-2 history jual.
+-- Cara pakai: jalankan SELURUH file ini di Supabase SQL editor.
+-- File mandiri: memastikan kolom dulu (DB prod belum tentu sudah
+-- menjalankan migrasi 05/06), mencabut unique, menghapus HANYA data demo,
+-- lalu insert seed baru.
 --
--- Jalankan di Supabase SQL editor (atau `supabase db reset` untuk lokal).
+-- Isi seed: 2 akun demo (kredensial persis seed lama), 4 produk (semua tipe
+-- filter: Bandeng/Udang/Kerang/Olahan), tiap produk 2-3 nelayan dan
+-- 1 nelayan punya 2-3 penerimaan (sub_products beda id/created_at),
+-- tiap penerimaan 1 history tambah_produk + 1-2 history jual.
 
--- 0) Cabut unique lebih dulu agar insert penerimaan ganda lolos.
+-- 0a) Pastikan kolom per-nelayan ada (migrasi 05).
+alter table public.sub_products
+  add column if not exists name text,
+  add column if not exists price numeric(12,0),
+  add column if not exists quality jsonb;
+
+-- 0b) Pastikan grade & min_order_kg ada (migrasi 06).
+alter table public.sub_products
+  add column if not exists grade text,
+  add column if not exists min_order_kg numeric(12,1) default 1
+    check (min_order_kg is null or min_order_kg > 0);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'sub_products_grade_check'
+  ) then
+    alter table public.sub_products
+      add constraint sub_products_grade_check
+      check (grade is null or grade in ('A','B','C','D'));
+  end if;
+end $$;
+
+update public.sub_products
+  set min_order_kg = 1
+  where min_order_kg is null;
+
+-- 0c) Pastikan stage ada (migrasi 06).
+alter table public.product_history
+  add column if not exists stage text;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'product_history_stage_check'
+  ) then
+    alter table public.product_history
+      add constraint product_history_stage_check
+      check (
+        stage is null
+        or stage in (
+          'estimasi_tangkap',
+          'diambil_pengepul',
+          'simpan_gudang',
+          'olah',
+          'siap_jual',
+          'jual'
+        )
+      );
+  end if;
+end $$;
+
+-- 0d) Cabut unique agar 1 nelayan boleh punya banyak penerimaan.
 alter table public.sub_products
   drop constraint if exists sub_products_product_id_fisherman_name_key;
 
--- 1) Bersihkan child-first.
-delete from public.history_documents;
-delete from public.history_geo_points;
-delete from public.product_history;
-delete from public.sub_products;
-delete from public.products;
-delete from public.orders;
-delete from public.lots;
-delete from public.reports;
+-- 1) Hapus HANYA data demo (scoped, aman untuk data produksi).
+--    Urutan child-first: docs/points -> history -> subs -> products,
+--    lalu lots/orders demo, reports demo, users/prices demo.
+delete from public.history_documents
+  where history_id in (
+    select h.id from public.product_history h
+    join public.products p on p.id = h.product_id
+    where p.pengepul_id = 'USR-DEMO'
+  );
+delete from public.history_geo_points
+  where history_id in (
+    select h.id from public.product_history h
+    join public.products p on p.id = h.product_id
+    where p.pengepul_id = 'USR-DEMO'
+  );
+delete from public.product_history
+  where product_id in (
+    select id from public.products where pengepul_id = 'USR-DEMO'
+  );
+delete from public.sub_products
+  where product_id in (
+    select id from public.products where pengepul_id = 'USR-DEMO'
+  );
+delete from public.products where pengepul_id = 'USR-DEMO';
+delete from public.orders where id like 'PO-%';
+delete from public.lots where id like 'SGR-%';
+delete from public.reports where reporter_user_id in ('USR-DEMO', 'USR-DEMO-CUST', 'USR-DEMO-BUYER');
 delete from public.users where id in ('USR-DEMO', 'USR-DEMO-CUST', 'USR-DEMO-BUYER');
 delete from public.prices where name in ('Bandeng', 'Udang Vaname', 'Kerang Hijau', 'Bandeng Tanpa Duri');
 
@@ -72,12 +139,15 @@ insert into public.products (
    'USR-DEMO', 'KUB Mina Jaya', 'Gresik Kota', 'SG20261004OLAHAN01', '2026-10-04T06:30:00Z');
 
 -- 5) Penerimaan (sub_products). Kunci demo hirarki: Pak Ali 3x terima,
---    Pak Hadi 2x terima, Bu Aminah 2x terima (nama sama, id + created_at beda).
+--    Pak Hadi 2x terima, Bu Aminah 2x terima, Bu Lastri 2x terima
+--    (nama sama, id + created_at beda).
+--    Stok = diterima - terjual: ALI-1 28-5=23, HADI-1 25-8=17,
+--    LASTRI-1 30-10=20 (konsisten dengan history jual di bawah).
 insert into public.sub_products
   (id, product_id, name, fisherman_name, quantity, unit, price, min_order_kg, grade, quality, geo_lat, geo_lng, created_at)
 values
   -- Bandeng Pagi: Pak Ali 3 penerimaan + Bu Sri 1 penerimaan
-  ('SUB-BDG-ALI-1', 'PRD-BANDENG-01', 'Bandeng segar', 'Pak Ali', 28, 'kg', 26500, 1, 'A',
+  ('SUB-BDG-ALI-1', 'PRD-BANDENG-01', 'Bandeng segar', 'Pak Ali', 23, 'kg', 26500, 1, 'A',
    '{"cleanHandling": true, "packaging": "Es & box food grade", "temperature": "0–4 °C", "dispatch": "Mobil box berpendingin"}',
    -6.9340, 112.5480, '2026-10-04T05:10:00Z'),
   ('SUB-BDG-ALI-2', 'PRD-BANDENG-01', 'Bandeng segar', 'Pak Ali', 22, 'kg', 27000, 1, 'A',
@@ -90,7 +160,7 @@ values
    '{"cleanHandling": true, "packaging": "Keranjang bersih", "temperature": "0–4 °C", "dispatch": "Motor keranjang"}',
    -6.9361, 112.5519, '2026-10-04T05:25:00Z'),
   -- Udang: Pak Hadi 2 penerimaan + Pak Yanto 1 penerimaan
-  ('SUB-UDG-HADI-1', 'PRD-UDANG-01', 'Udang vaname size 50', 'Pak Hadi', 25, 'kg', 93000, 1, 'A',
+  ('SUB-UDG-HADI-1', 'PRD-UDANG-01', 'Udang vaname size 50', 'Pak Hadi', 17, 'kg', 93000, 1, 'A',
    '{"cleanHandling": true, "packaging": "Es & box food grade", "temperature": "-18 °C", "dispatch": "Mobil box berpendingin"}',
    -6.9750, 112.6230, '2026-10-04T05:40:00Z'),
   ('SUB-UDG-HADI-2', 'PRD-UDANG-01', 'Udang vaname size 50', 'Pak Hadi', 15, 'kg', 94000, 1, 'B',
@@ -110,7 +180,7 @@ values
    '{"cleanHandling": true, "packaging": "Keranjang bersih", "temperature": null, "dispatch": "Motor keranjang"}',
    -6.9944, 112.5238, '2026-10-04T06:40:00Z'),
   -- Olahan: Bu Lastri 2 penerimaan + Pak Joko 1 penerimaan
-  ('SUB-OLH-LASTRI-1', 'PRD-OLAHAN-01', 'Bandeng presto', 'Bu Lastri', 30, 'kg', 40000, 1, 'A',
+  ('SUB-OLH-LASTRI-1', 'PRD-OLAHAN-01', 'Bandeng presto', 'Bu Lastri', 20, 'kg', 40000, 1, 'A',
    '{"cleanHandling": true, "packaging": "Kemasan olahan tersegel", "temperature": "0–4 °C", "dispatch": "Mobil box berpendingin"}',
    -6.9980, 112.5320, '2026-10-04T06:35:00Z'),
   ('SUB-OLH-LASTRI-2', 'PRD-OLAHAN-01', 'Bandeng presto', 'Bu Lastri', 20, 'kg', 41000, 1, 'A',
@@ -121,6 +191,7 @@ values
    -6.9990, 112.5340, '2026-10-04T06:50:00Z');
 
 -- 6) History: tiap penerimaan 1 tambah_produk (+ geo point), plus jual.
+--    quantity_delta tambah = jumlah diterima; sub.quantity = sisa setelah jual.
 insert into public.product_history
   (id, product_id, sub_product_id, actor_id, actor, kind, stage, note, quantity_delta, created_at)
 values
