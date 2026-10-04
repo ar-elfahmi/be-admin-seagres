@@ -770,7 +770,15 @@ export async function addSubProductAction(
     geoLng,
     createdAt: now.toISOString(),
   };
-  await insertSubProduct(sub);
+  try {
+    await insertSubProduct(sub);
+  } catch (err: unknown) {
+    const message = errorMessage(err);
+    if (message.toLowerCase().includes("unique") || message.toLowerCase().includes("duplicate")) {
+      return { error: "Penerimaan ini duplikat menurut database. Jalankan migrasi 20261007000000 (cabut unique product_id + fisherman_name) di Supabase SQL editor, lalu coba lagi." };
+    }
+    throw err;
+  }
   const history: ProductHistory = {
     id: newId("HIS"),
     productId: product.id,
