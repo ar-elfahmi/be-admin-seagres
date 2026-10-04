@@ -298,14 +298,15 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
                 />
               </label>
               <label>
-                Harga per kg
+                Harga per kg <small>(wajib)</small>
                 <input
                   type="number"
-                  min="0"
+                  min="1000"
                   step="500"
                   value={row.price}
                   onChange={(event) => updateRow(row.id, { price: event.target.value })}
                   placeholder="ex: 28000"
+                  required
                 />
               </label>
             </div>
@@ -696,15 +697,45 @@ function ProductCard({ product, onDeleted, onSold, onReceived }: ProductCardProp
           <form className="form" onSubmit={handleSell}>
             {error ? <div className="form-error">{error}</div> : null}
             <label>
-              Sumber nelayan
+              Sumber penerimaan
               <select value={subId} onChange={(event) => setSubId(event.target.value)} required>
-                {product.subProducts.map((sub) => (
-                  <option key={sub.id} value={sub.id}>
-                    {sub.fishermanName} · {sub.quantity.toFixed(1)} kg
-                  </option>
-                ))}
+                {product.subProducts.map((sub) => {
+                  const tgl = new Date(sub.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
+                  const grade = sub.grade ? `Grade ${sub.grade}` : "tanpa grade";
+                  return (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.fishermanName} · {grade} · masuk {tgl} · stok {sub.quantity.toFixed(1)} kg
+                    </option>
+                  );
+                })}
               </select>
             </label>
+            {(() => {
+              const sel = product.subProducts.find((sub) => sub.id === subId);
+              if (!sel) return null;
+              const tgl = new Date(sel.createdAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
+              const mutu = [
+                sel.quality.cleanHandling ? "bersih" : null,
+                sel.quality.packaging,
+                sel.quality.temperature,
+              ].filter(Boolean).join(" · ");
+              return (
+                <div className="sell-source-card" role="group" aria-label="Detail sumber yang akan dijual">
+                  <header>
+                    <strong>{sel.fishermanName}</strong>
+                    <span className="sell-source-tag">{sel.grade ? `Grade ${sel.grade}` : "Tanpa grade"}</span>
+                  </header>
+                  <dl>
+                    {sel.name ? <div><dt>Barang</dt><dd>{sel.name}</dd></div> : null}
+                    <div><dt>Diterima</dt><dd>{tgl}</dd></div>
+                    <div><dt>Stok tersedia</dt><dd>{sel.quantity.toFixed(1)} kg</dd></div>
+                    <div><dt>Harga modal</dt><dd>Rp{money.format(sel.price)}/kg</dd></div>
+                    <div><dt>Mutu</dt><dd>{mutu || "—"}</dd></div>
+                    <div><dt>Barcode</dt><dd className="sell-source-barcode">{sel.barcode}</dd></div>
+                  </dl>
+                </div>
+              );
+            })()}
             <label>
               Jumlah jual (kg)
               <input
