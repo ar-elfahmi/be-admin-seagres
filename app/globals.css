@@ -3023,6 +3023,8 @@ a {
 @media (max-width: 720px) {
   .pengepul-shell .bottom-nav { display: flex; }
   .pengepul-shell { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .pengepul-shell .dashboard-actions .header-pill,
+  .pengepul-shell .dashboard-actions .avatar { display: none; }
   .pengepul-shell .dashboard-header-inner {
     grid-template-columns: auto 1fr auto;
     gap: 10px;
@@ -3042,6 +3044,7 @@ a {
 @media (max-width: 480px) {
   .pengepul-shell .stat-strip { grid-template-columns: 1fr; }
 }
+
 
 .pengepul-shell .bottom-nav .bottom-sell span { display: inline; font-size: 10px; font-weight: 700; margin-top: 2px; }
 .pengepul-shell .bottom-nav .bottom-sell {
