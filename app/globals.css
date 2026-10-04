@@ -3047,15 +3047,23 @@ a {
   .pengepul-shell .dashboard-title small { font-size: 11px; }
   .pengepul-shell .dashboard-actions .header-pill { padding: 6px 10px; font-size: 11.5px; }
   .pengepul-shell .dashboard-body { padding: 12px; gap: 14px; }
-  .pengepul-shell .stat-strip { grid-template-columns: 1fr 1fr; }
+  .pengepul-shell .stat-strip { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pengepul-shell .stat-card { padding: 10px 10px; }
+  .pengepul-shell .stat-card svg { width: 26px; height: 26px; padding: 5px; }
+  .pengepul-shell .stat-card strong { font-size: 17px; }
+  .pengepul-shell .stat-card strong small { font-size: 12px; }
+  .pengepul-shell .stat-label { font-size: 10.5px; }
+  .pengepul-shell .stat-card small { font-size: 10.5px; }
   .pengepul-shell .action-bar { padding: 10px; gap: 8px; }
   .pengepul-shell .filter-chips button { padding: 5px 10px; font-size: 11.5px; }
   .pengepul-shell .add-product { width: 100%; justify-content: center; }
   .pengepul-shell .dash-card { padding: 12px 14px; }
+@media (max-width: 360px) {
+  .pengepul-shell .stat-strip { gap: 6px; }
+  .pengepul-shell .stat-card { padding: 8px 6px; }
 }
-@media (max-width: 480px) {
-  .pengepul-shell .stat-strip { grid-template-columns: 1fr; }
-}
+
+
 
 
 .pengepul-shell .bottom-nav .bottom-sell span { display: inline; font-size: 10px; font-weight: 700; margin-top: 2px; }
