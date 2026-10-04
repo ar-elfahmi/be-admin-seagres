@@ -25,7 +25,6 @@ import {
   ShoppingCart,
   Star,
   Store,
-  Trash2,
   TrendingUp,
   Truck,
   UserRound,
@@ -35,7 +34,6 @@ import {
 import { useState, type FormEvent, type ReactNode } from "react";
 import {
   createProduct,
-  deleteProductAction,
   logout,
   updateProductQuantity,
 } from "../actions";
@@ -545,22 +543,8 @@ function TrendChart({ series }: { series: number[] }) {
 }
 function ProductCard({ product, onChanged }: ProductCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [subOpen, setSubOpen] = useState(false);
   const traceUrl = typeof window === "undefined" ? `/produk/${product.id}` : `${window.location.origin}/produk/${product.id}`;
-
-  async function del() {
-    if (busy) return;
-    if (!window.confirm(`Hapus produk ${product.name}? Riwayat dan sub-produk ikut terhapus.`)) return;
-    setBusy(true);
-    try {
-      const res = await deleteProductAction(product.id);
-      if (res?.error) window.alert(res.error);
-      else onChanged();
-    } finally {
-      setBusy(false);
-    }
-  }
 
   function printLabel() {
     const w = window.open("", "_blank", "width=420,height=560");
@@ -603,10 +587,31 @@ function ProductCard({ product, onChanged }: ProductCardProps) {
           <button type="button" onClick={printLabel} className="ghost" aria-label="Cetak label">
             <Printer /> Cetak
           </button>
-          <button type="button" onClick={del} disabled={busy} className="ghost danger" aria-label="Hapus produk">
-            <Trash2 /> Hapus
-          </button>
         </div>
+      </div>
+
+      <div className="pcr-toggle-row">
+        <button
+          type="button"
+          className="pcr-toggle"
+          onClick={() => setSubOpen((value) => !value)}
+          aria-expanded={subOpen}
+        >
+          <Users />
+          {subOpen ? "Sembunyikan" : "Lihat"} sumber ({product.subProducts.length})
+          <ChevronDown className={subOpen ? "rot" : ""} />
+        </button>
+
+        <button
+          type="button"
+          className="pcr-toggle"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+        >
+          <ClipboardCheck />
+          {expanded ? "Sembunyikan" : "Lihat"} riwayat event ({product.history.length})
+          <ChevronDown className={expanded ? "rot" : ""} />
+        </button>
       </div>
 
       {subOpen ? (
@@ -623,28 +628,6 @@ function ProductCard({ product, onChanged }: ProductCardProps) {
           )}
         </div>
       ) : null}
-
-      <button
-        type="button"
-        className="pcr-toggle"
-        onClick={() => setSubOpen((value) => !value)}
-        aria-expanded={subOpen}
-      >
-        <Users />
-        {subOpen ? "Sembunyikan" : "Lihat"} sumber ({product.subProducts.length})
-        <ChevronDown className={subOpen ? "rot" : ""} />
-      </button>
-
-      <button
-        type="button"
-        className="pcr-toggle"
-        onClick={() => setExpanded((value) => !value)}
-        aria-expanded={expanded}
-      >
-        <ClipboardCheck />
-        {expanded ? "Sembunyikan" : "Lihat"} riwayat event ({product.history.length})
-        <ChevronDown className={expanded ? "rot" : ""} />
-      </button>
 
       {expanded ? (
         <div className="pcr-history">
