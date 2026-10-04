@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   ArrowUpRight,
   FileText,
@@ -9,10 +9,13 @@ import {
   Store,
   UserRound,
 } from "lucide-react";
-import { currentUser } from "../../../../../../../../lib/session";
-import { getProductDetail } from "../../../../../../../../lib/queries";
+import { currentUser } from "@/lib/session";
+import { getProductDetail } from "@/lib/queries";
 import SeagresLogo from "@/app/components/seagres-logo";
-import { HISTORY_STAGE_LABELS } from "../../../../../../../../lib/types";
+import { HISTORY_STAGE_LABELS } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
+
 interface PageProps {
   params: Promise<{ id: string; subId: string; eventId: string }>;
 }
@@ -38,20 +41,17 @@ function isImage(mime: string): boolean {
 
 export default async function PengepulEventPage({ params }: PageProps) {
   const user = await currentUser();
-  if (!user || user.accountType !== "pengepul") {
-    return (
-      <main className="lot-page">
-        <p className="lot-foot-note">Halaman ini khusus akun pengepul. Silakan masuk.</p>
-      </main>
-    );
-  }
+  if (!user) redirect("/");
+  if (user.accountType !== "pengepul") redirect("/");
   const { id, subId, eventId } = await params;
   const detail = await getProductDetail(id);
   if (!detail) notFound();
   if (detail.pengepulId !== user.id) {
     return (
       <main className="lot-page">
-        <p className="lot-foot-note">Event ini bukan milikmu.</p>
+        <p className="lot-foot-note">
+          Event ini bukan milikmu. <Link href="/dashboard">Kembali ke dashboard</Link>.
+        </p>
       </main>
     );
   }

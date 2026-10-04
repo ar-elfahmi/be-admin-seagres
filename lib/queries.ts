@@ -449,6 +449,8 @@ export async function insertSubProduct(sub: SubProduct): Promise<void> {
     geo_lat: sub.geoLat,
     geo_lng: sub.geoLng,
     price: sub.price,
+    grade: sub.grade ?? null,
+    min_order_kg: sub.minOrderKg,
     quality: sub.quality ?? null,
     created_at: sub.createdAt,
   });
@@ -493,6 +495,7 @@ export async function insertHistory(event: ProductHistory): Promise<void> {
     actor_id: event.actorId,
     actor: event.actor,
     kind: event.kind,
+    stage: event.stage ?? null,
     note: event.note,
     quantity_delta: event.quantityDelta,
     created_at: event.createdAt,

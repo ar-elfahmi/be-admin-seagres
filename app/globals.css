@@ -2879,8 +2879,9 @@ a {
 .price-chip { background: var(--surface-2, #eef3fb); color: var(--primary); }
 .barcode-chip { background: #f1f5f9; color: #475569; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-.pcr-actions { display: inline-flex; gap: 6px; align-items: center; }
-.pcr-actions .ghost { display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; font-size: 12px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--line); background: #fff; cursor: pointer; color: var(--ink); }
+.pcr-actions { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.pcr-actions .ghost { display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px; font-size: 12px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--line); background: #fff; cursor: pointer; color: var(--ink); white-space: nowrap; }
+.pcr-actions .ghost svg { width: 14px; height: 14px; flex: 0 0 14px; }
 .pcr-actions .ghost:hover { border-color: var(--primary); color: var(--primary); }
 .pcr-actions .ghost.danger { color: #b91c1c; border-color: #fecaca; }
 .pcr-actions .ghost.danger:hover { background: #fef2f2; }

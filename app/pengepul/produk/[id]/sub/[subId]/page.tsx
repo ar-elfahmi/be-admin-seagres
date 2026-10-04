@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -18,9 +18,12 @@ import SeagresLogo from "@/app/components/seagres-logo";
 import AddEventForm from "@/app/components/forms/add-event-form";
 import { HISTORY_STAGE_LABELS } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 interface PageProps {
   params: Promise<{ id: string; subId: string }>;
 }
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id, subId } = await params;
   const detail = await getProductDetail(id);
@@ -41,20 +44,17 @@ function formatDateTime(iso: string) {
 
 export default async function PengepulSubProductPage({ params }: PageProps) {
   const user = await currentUser();
-  if (!user || user.accountType !== "pengepul") {
-    return (
-      <main className="lot-page">
-        <p className="lot-foot-note">Halaman ini khusus akun pengepul. Silakan masuk.</p>
-      </main>
-    );
-  }
+  if (!user) redirect("/");
+  if (user.accountType !== "pengepul") redirect("/");
   const { id, subId } = await params;
   const detail = await getProductDetail(id);
   if (!detail) notFound();
   if (detail.pengepulId !== user.id) {
     return (
       <main className="lot-page">
-        <p className="lot-foot-note">Sub-produk ini bukan milikmu.</p>
+        <p className="lot-foot-note">
+          Sub-produk ini bukan milikmu. <Link href="/dashboard">Kembali ke dashboard</Link>.
+        </p>
       </main>
     );
   }

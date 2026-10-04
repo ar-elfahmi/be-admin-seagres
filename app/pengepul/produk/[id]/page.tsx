@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -45,13 +45,8 @@ function formatDateTime(iso: string) {
 
 export default async function PengepulProdukPage({ params, searchParams }: PageProps) {
   const user = await currentUser();
-  if (!user || user.accountType !== "pengepul") {
-    return (
-      <main className="lot-page">
-        <p className="lot-foot-note">Halaman ini khusus akun pengepul. Silakan masuk.</p>
-      </main>
-    );
-  }
+  if (!user) redirect("/");
+  if (user.accountType !== "pengepul") redirect("/");
   const { id } = await params;
   const { show } = await searchParams;
   const detail = await getProductDetail(id);
@@ -59,7 +54,9 @@ export default async function PengepulProdukPage({ params, searchParams }: PageP
   if (detail.pengepulId !== user.id) {
     return (
       <main className="lot-page">
-        <p className="lot-foot-note">Produk ini bukan milikmu.</p>
+        <p className="lot-foot-note">
+          Produk ini bukan milikmu. <Link href="/dashboard">Kembali ke dashboard</Link>.
+        </p>
       </main>
     );
   }
