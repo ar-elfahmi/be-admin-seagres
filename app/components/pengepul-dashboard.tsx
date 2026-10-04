@@ -523,6 +523,10 @@ function ProductCard({ product, onDeleted, onSold }: ProductCardProps) {
     event.preventDefault();
     setError(null);
     const qty = Number(amount);
+    if (!subId) {
+      setError("Pilih sumber nelayan dulu.");
+      return;
+    }
     if (!Number.isFinite(qty) || qty <= 0) {
       setError("Masukkan jumlah jual lebih dari 0 kg.");
       return;
