@@ -357,24 +357,26 @@ export async function insertProduct(product: Product): Promise<void> {
   if (error) throw error;
 }
 
-export async function deleteProduct(id: string): Promise<boolean> {
-  const { data, error } = await supabase().from("products").delete().eq("id", id).select("id");
-  if (error) throw error;
-  return (data?.length ?? 0) > 0;
-}
-
 export async function insertSubProduct(sub: SubProduct): Promise<void> {
   const { error } = await supabase().from("sub_products").insert({
     id: sub.id,
     product_id: sub.productId,
+    name: sub.name,
     fisherman_name: sub.fishermanName,
     quantity: sub.quantity,
     unit: sub.unit,
     geo_lat: sub.geoLat,
     geo_lng: sub.geoLng,
+    price: sub.price,
+    quality: sub.quality ?? null,
     created_at: sub.createdAt,
   });
   if (error) throw error;
+}
+export async function deleteProduct(id: string): Promise<boolean> {
+  const { data, error } = await supabase().from("products").delete().eq("id", id).select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 /** Update atomik kuantitas sub-product; row lock akan menolak oversell. */

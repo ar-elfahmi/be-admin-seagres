@@ -86,12 +86,20 @@ export default async function ProdukPage({ params }: PageProps) {
                   <li key={sub.id}>
                     <Package aria-hidden="true" />
                     <span>
-                      <strong>{sub.fishermanName}</strong>
+                      <strong>{sub.name || sub.fishermanName}</strong>
                       <small>
-                        {sub.quantity.toFixed(1)} {sub.unit}
+                        {sub.fishermanName} · {sub.quantity.toFixed(1)} {sub.unit} · Rp
+                        {new Intl.NumberFormat("id-ID").format(sub.price)}/kg
+                      </small>
+                      <small>
+                        {sub.quality.cleanHandling ? "Bersih" : "Perlu cek"} · {sub.quality.packaging}
+                        {sub.quality.temperature ? ` · ${sub.quality.temperature}` : ""}
+                        {sub.quality.dispatch ? ` · ${sub.quality.dispatch}` : ""}
+                      </small>
+                      <small>
                         {sub.geoLat !== null && sub.geoLng !== null
-                          ? ` · ${sub.geoLat.toFixed(4)}, ${sub.geoLng.toFixed(4)}`
-                          : " · lokasi umum"}
+                          ? `${sub.geoLat.toFixed(4)}, ${sub.geoLng.toFixed(4)}`
+                          : "lokasi umum"}
                       </small>
                     </span>
                   </li>

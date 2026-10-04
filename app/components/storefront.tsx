@@ -204,12 +204,18 @@ function ProductDetail({
           <ul>
             {product.subProducts.map((sub: SubProduct) => (
               <li key={sub.id}>
-                <strong>{sub.fishermanName}</strong>
+                <strong>{sub.name || sub.fishermanName}</strong>
                 <span>
-                  {sub.quantity.toFixed(1)} kg
+                  {sub.fishermanName} · {sub.quantity.toFixed(1)} kg · Rp{money.format(sub.price)}/kg
+                </span>
+                <span>
+                  {sub.quality.cleanHandling ? "Bersih" : "Perlu cek"} · {sub.quality.packaging}
+                  {sub.quality.temperature ? ` · ${sub.quality.temperature}` : ""}
+                </span>
+                <span>
                   {sub.geoLat !== null && sub.geoLng !== null
-                    ? ` · ${sub.geoLat.toFixed(4)}, ${sub.geoLng.toFixed(4)}`
-                    : " · lokasi umum"}
+                    ? `${sub.geoLat.toFixed(4)}, ${sub.geoLng.toFixed(4)}`
+                    : "lokasi umum"}
                 </span>
               </li>
             ))}

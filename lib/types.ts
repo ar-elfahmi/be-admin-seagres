@@ -29,8 +29,8 @@ export interface Price {
 export interface LotQuality {
   cleanHandling: boolean;
   packaging: string;
-  temperature: string;
-  dispatch: string;
+  temperature: string | null;
+  dispatch: string | null;
 }
 
 /**
@@ -102,15 +102,17 @@ export interface Product {
   barcode: string;
   createdAt: string;
 }
-
 export interface SubProduct {
   id: string;
   productId: string;
+  name: string;
   fishermanName: string;
   quantity: number;
   unit: string;
   geoLat: number | null;
   geoLng: number | null;
+  price: number;
+  quality: LotQuality;
   createdAt: string;
 }
 

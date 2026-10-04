@@ -78,8 +78,14 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
 
 interface FishermanRowState {
   id: string;
+  name: string;
   fishermanName: string;
   quantity: string;
+  price: string;
+  qualityClean: boolean;
+  qualityPackaging: string;
+  qualityTemperature: string;
+  qualityDispatch: string;
   geoLat: string;
   geoLng: string;
   files: File[];
@@ -88,8 +94,14 @@ interface FishermanRowState {
 function newFishermanRow(): FishermanRowState {
   return {
     id: Math.random().toString(36).slice(2, 10),
+    name: "",
     fishermanName: "",
     quantity: "0",
+    price: "",
+    qualityClean: true,
+    qualityPackaging: "Es & box food grade",
+    qualityTemperature: "",
+    qualityDispatch: "",
     geoLat: "",
     geoLng: "",
     files: [],
@@ -113,8 +125,14 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     rows.forEach((row, index) => {
+      data.set(`subName[${index}]`, row.name);
       data.set(`fishermanName[${index}]`, row.fishermanName);
       data.set(`subQuantity[${index}]`, row.quantity);
+      data.set(`subPrice[${index}]`, row.price);
+      if (row.qualityClean) data.set(`qualityClean[${index}]`, "on");
+      data.set(`qualityPackaging[${index}]`, row.qualityPackaging);
+      data.set(`qualityTemperature[${index}]`, row.qualityTemperature);
+      data.set(`qualityDispatch[${index}]`, row.qualityDispatch);
       data.set(`geoLat[${index}]`, row.geoLat);
       data.set(`geoLng[${index}]`, row.geoLng);
       row.files.forEach((file) => data.append(`documents[${index}]`, file));
@@ -199,6 +217,15 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
             </header>
             <div className="form-grid">
               <label>
+                Nama produk
+                <input
+                  type="text"
+                  value={row.name}
+                  onChange={(event) => updateRow(row.id, { name: event.target.value })}
+                  placeholder="ex: Bandeng segar"
+                />
+              </label>
+              <label>
                 Nama nelayan
                 <input
                   type="text"
@@ -208,6 +235,8 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
                   required
                 />
               </label>
+            </div>
+            <div className="form-grid">
               <label>
                 Kuantitas (kg)
                 <input
@@ -217,6 +246,17 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
                   value={row.quantity}
                   onChange={(event) => updateRow(row.id, { quantity: event.target.value })}
                   required
+                />
+              </label>
+              <label>
+                Harga dari nelayan (Rp/kg)
+                <input
+                  type="number"
+                  min="0"
+                  step="500"
+                  value={row.price}
+                  onChange={(event) => updateRow(row.id, { price: event.target.value })}
+                  placeholder="ex: 28000"
                 />
               </label>
             </div>
@@ -242,6 +282,49 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
                 />
               </label>
             </div>
+            <fieldset className="quality-block">
+              <legend>Mutu & penanganan</legend>
+              <label className="check-line">
+                <input
+                  type="checkbox"
+                  checked={row.qualityClean}
+                  onChange={(event) => updateRow(row.id, { qualityClean: event.target.checked })}
+                />
+                Penanganan bersih (ikan tidak rusak, tanpa es kotor)
+              </label>
+              <div className="form-grid">
+                <label>
+                  Kemasan
+                  <select
+                    value={row.qualityPackaging}
+                    onChange={(event) => updateRow(row.id, { qualityPackaging: event.target.value })}
+                  >
+                    <option>Es & box food grade</option>
+                    <option>Keranjang bersih</option>
+                    <option>Kemasan olahan tersegel</option>
+                    <option>Standar pengepul</option>
+                  </select>
+                </label>
+                <label>
+                  Suhu penyimpanan
+                  <input
+                    type="text"
+                    value={row.qualityTemperature}
+                    onChange={(event) => updateRow(row.id, { qualityTemperature: event.target.value })}
+                    placeholder="ex: 0–4 °C"
+                  />
+                </label>
+              </div>
+              <label>
+                Metode pengiriman ke pembeli
+                <input
+                  type="text"
+                  value={row.qualityDispatch}
+                  onChange={(event) => updateRow(row.id, { qualityDispatch: event.target.value })}
+                  placeholder="ex: Mobil box berpendingin"
+                />
+              </label>
+            </fieldset>
             <button className="link-button" type="button" onClick={() => captureGeolocation(row.id)}>
               <MapPin /> Ambil titik lokasi dari browser
             </button>
@@ -312,13 +395,18 @@ function FishermanControl({ productId, sub }: FishermanControlProps) {
   return (
     <div className="fisherman-control">
       <span>
-        <strong>{sub.fishermanName}</strong>
-        <small>
-          {sub.quantity.toFixed(1)} kg
-          {sub.geoLat !== null && sub.geoLng !== null
-            ? ` · ${sub.geoLat.toFixed(4)}, ${sub.geoLng.toFixed(4)}`
-            : ""}
+        <strong>{sub.name || sub.fishermanName}</strong>
+        <small>{sub.fishermanName} · {sub.quantity.toFixed(1)} kg · Rp{money.format(sub.price)}/kg</small>
+        <small className="sub-quality">
+          {sub.quality.cleanHandling ? "✓ Bersih" : "⚠ Perlu cek"} · {sub.quality.packaging}
+          {sub.quality.temperature ? ` · ${sub.quality.temperature}` : ""}
+          {sub.quality.dispatch ? ` · ${sub.quality.dispatch}` : ""}
         </small>
+        {sub.geoLat !== null && sub.geoLng !== null ? (
+          <small className="sub-geo">
+            <MapPin /> {sub.geoLat.toFixed(4)}, {sub.geoLng.toFixed(4)}
+          </small>
+        ) : null}
       </span>
       {mode ? (
         <form onSubmit={apply}>

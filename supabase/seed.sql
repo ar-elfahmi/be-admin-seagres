@@ -47,14 +47,21 @@ insert into public.products (
    'USR-DEMO', 'KUB Mina Jaya', 'Sidayu', 'SG20261012MPRD01', '2026-10-12T07:10:00Z')
 on conflict (id) do nothing;
 
--- Sub-products per produk (nelayan sebagai sumber utama).
-insert into public.sub_products (id, product_id, fisherman_name, quantity, unit, geo_lat, geo_lng) values
-  ('SUB-130926-001', 'PRD-130926-001', 'Pak Ali',   30, 'kg', -6.9340, 112.5480),
-  ('SUB-130926-002', 'PRD-130926-001', 'Bu Sri',    20, 'kg', -6.9361, 112.5519),
-  ('SUB-130926-003', 'PRD-130926-002', 'Pak Hadi',  25, 'kg', -6.9750, 112.6230),
-  ('SUB-130926-004', 'PRD-130926-002', 'Pak Yanto', 15, 'kg', -6.9768, 112.6275),
-  ('SUB-120926-001', 'PRD-120926-001', 'Pak Surat', 40, 'kg', -6.9920, 112.5210),
-  ('SUB-120926-002', 'PRD-120926-001', 'Bu Aminah', 20, 'kg', -6.9942, 112.5235)
+-- Sub-products per produk (nelayan sebagai sumber utama). Setiap nelayan
+-- punya nama komoditas, kuantitas, harga, dan checklist mutu sendiri.
+insert into public.sub_products (id, product_id, name, fisherman_name, quantity, unit, price, quality, geo_lat, geo_lng) values
+  ('SUB-130926-001', 'PRD-130926-001', 'Bandeng segar', 'Pak Ali',   30, 'kg', 27000,
+   '{"cleanHandling": true, "packaging": "Es & box food grade", "temperature": "0–4 °C", "dispatch": "Mobil box berpendingin"}', -6.9340, 112.5480),
+  ('SUB-130926-002', 'PRD-130926-001', 'Bandeng segar', 'Bu Sri',    20, 'kg', 28500,
+   '{"cleanHandling": true, "packaging": "Keranjang bersih", "temperature": "0–4 °C", "dispatch": "Motor keranjang"}', -6.9361, 112.5519),
+  ('SUB-130926-003', 'PRD-130926-002', 'Udang vaname size 50', 'Pak Hadi',  25, 'kg', 93000,
+   '{"cleanHandling": true, "packaging": "Es & box food grade", "temperature": "-18 °C", "dispatch": "Mobil box berpendingin"}', -6.9750, 112.6230),
+  ('SUB-130926-004', 'PRD-130926-002', 'Udang vaname size 50', 'Pak Yanto', 15, 'kg', 97000,
+   '{"cleanHandling": true, "packaging": "Es & box food grade", "temperature": "-18 °C", "dispatch": "Mobil box berpendingin"}', -6.9768, 112.6275),
+  ('SUB-120926-001', 'PRD-120926-001', 'Kerang hijau', 'Pak Surat', 40, 'kg', 17500,
+   '{"cleanHandling": true, "packaging": "Keranjang bersih", "temperature": null, "dispatch": "Motor keranjang"}', -6.9920, 112.5210),
+  ('SUB-120926-002', 'PRD-120926-001', 'Kerang hijau', 'Bu Aminah', 20, 'kg', 18500,
+   '{"cleanHandling": true, "packaging": "Keranjang bersih", "temperature": null, "dispatch": "Motor keranjang"}', -6.9942, 112.5235)
 on conflict (id) do nothing;
 
 -- History tambah_produk per produk dengan 1 titik geo (pendaratan).

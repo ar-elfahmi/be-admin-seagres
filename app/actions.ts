@@ -276,10 +276,19 @@ export async function reportIssue(
 
 /* ---------- Produk agregasi pengepul ---------- */
 
+
 interface ParsedFisherman {
   index: number;
+  name: string;
   fishermanName: string;
   quantity: number;
+  price: number;
+  quality: {
+    cleanHandling: boolean;
+    packaging: string;
+    temperature: string | null;
+    dispatch: string | null;
+  };
   geoLat: number | null;
   geoLng: number | null;
   files: File[];
@@ -288,12 +297,18 @@ interface ParsedFisherman {
 function readFishermanRows(formData: FormData): ParsedFisherman[] {
   const rows: ParsedFisherman[] = [];
   for (let i = 0; formData.has(`fishermanName[${i}]`); i++) {
+    const name = String(formData.get(`subName[${i}]`) || "").trim();
     const fishermanName = String(formData.get(`fishermanName[${i}]`) || "").trim();
     const quantity = Number(formData.get(`subQuantity[${i}]`));
+    const price = Number(formData.get(`subPrice[${i}]`));
     const latRaw = String(formData.get(`geoLat[${i}]`) || "").trim();
     const lngRaw = String(formData.get(`geoLng[${i}]`) || "").trim();
     const geoLat = latRaw ? Number(latRaw) : null;
     const geoLng = lngRaw ? Number(lngRaw) : null;
+    const cleanHandling = formData.get(`qualityClean[${i}]`) === "on";
+    const packaging = String(formData.get(`qualityPackaging[${i}]`) || "Standar pengepul").trim() || "Standar pengepul";
+    const temperatureRaw = String(formData.get(`qualityTemperature[${i}]`) || "").trim();
+    const dispatchRaw = String(formData.get(`qualityDispatch[${i}]`) || "").trim();
     const files: File[] = [];
     const documentValues = formData.getAll(`documents[${i}]`);
     for (const value of documentValues) {
@@ -303,8 +318,16 @@ function readFishermanRows(formData: FormData): ParsedFisherman[] {
     }
     rows.push({
       index: i,
+      name,
       fishermanName,
       quantity: Number.isNaN(quantity) ? 0 : quantity,
+      price: Number.isNaN(price) ? 0 : price,
+      quality: {
+        cleanHandling,
+        packaging,
+        temperature: temperatureRaw || null,
+        dispatch: dispatchRaw || null,
+      },
       geoLat: geoLat !== null && !Number.isNaN(geoLat) ? geoLat : null,
       geoLng: geoLng !== null && !Number.isNaN(geoLng) ? geoLng : null,
       files,
@@ -474,8 +497,11 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
     const sub: SubProduct = {
       id: subId,
       productId: product.id,
+      name: row.name || product.name,
       fishermanName: row.fishermanName,
       quantity: row.quantity,
+      price: row.price,
+      quality: row.quality,
       unit: "kg",
       geoLat: row.geoLat,
       geoLng: row.geoLng,

@@ -104,11 +104,14 @@ export type ProductRow = {
 export type SubProductRow = {
   id: string;
   product_id: string;
+  name: string | null;
   fisherman_name: string;
   quantity: string | number;
   unit: string;
   geo_lat: number | null;
   geo_lng: number | null;
+  price: string | number | null;
+  quality: LotQuality | null;
   created_at: string;
 };
 
@@ -244,16 +247,23 @@ export function toProduct(row: ProductRow): Product {
     createdAt: row.created_at,
   };
 }
-
 export function toSubProduct(row: SubProductRow): SubProduct {
   return {
     id: row.id,
     productId: row.product_id,
+    name: row.name ?? "",
     fishermanName: row.fisherman_name,
     quantity: num(row.quantity),
     unit: row.unit,
     geoLat: row.geo_lat,
     geoLng: row.geo_lng,
+    price: row.price === null || row.price === undefined ? 0 : num(row.price),
+    quality: row.quality ?? {
+      cleanHandling: true,
+      packaging: "Standar pengepul",
+      temperature: null,
+      dispatch: null,
+    },
     createdAt: row.created_at,
   };
 }
