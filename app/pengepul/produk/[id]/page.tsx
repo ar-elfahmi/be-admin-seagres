@@ -158,13 +158,10 @@ export default async function PengepulProdukPage({ params }: PageProps) {
                 {detail.barcode} · {detail.type} · {detail.size} · {detail.location}
               </p>
             </div>
-            <div className="lot-price-wrap">
-              <span className="lot-price">
-                Rp{money.format(detail.price)}
-                <small>/kg</small>
-              </span>
-              <span className="lot-stock">
-                <Scale aria-hidden="true" /> {detail.available.toFixed(1)} kg total
+            <div className="lot-stock-wrap">
+              <span className="lot-stock-total">
+                <Scale aria-hidden="true" /> {detail.available.toFixed(1)}
+                <small>kg total</small>
               </span>
               <TerimaButton
                 productId={detail.id}
