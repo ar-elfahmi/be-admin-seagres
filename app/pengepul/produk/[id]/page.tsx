@@ -16,6 +16,7 @@ import {
 import { currentUser } from "@/lib/session";
 import { getProductDetail } from "@/lib/queries";
 import SeagresLogo from "@/app/components/seagres-logo";
+import TraceCard from "@/app/components/trace-card";
 import AddFishermanForm from "@/app/components/forms/add-fisherman-form";
 import { HISTORY_STAGE_LABELS } from "@/lib/types";
 
@@ -196,7 +197,7 @@ export default async function PengepulProdukPage({ params, searchParams }: PageP
             )}
           </section>
 
-          <section>
+          <section id="tambah-sumber" style={{ scrollMarginTop: "88px" }}>
             <h2 className="lot-steps-title">
               <Plus aria-hidden="true" /> Tambah sumber nelayan
             </h2>
@@ -207,6 +208,8 @@ export default async function PengepulProdukPage({ params, searchParams }: PageP
               </p>
             ) : null}
           </section>
+
+          <TraceCard barcode={detail.barcode} productName={detail.name} url={`/produk/${detail.id}`} />
         </div>
       </article>
 

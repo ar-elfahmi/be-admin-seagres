@@ -4,45 +4,37 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowUpRight,
   BadgeCheck,
   Check,
-  ChevronDown,
   ChevronRight,
-  ClipboardCheck,
   Clock,
-  FileText,
+  Eye,
   ListOrdered,
   LogOut,
   MapPin,
   Package,
   Plus,
-  Printer,
-  QrCode,
   Scale,
   Search,
   ShieldCheck,
   ShoppingCart,
   Star,
-  Store,
+  Trash2,
   TrendingUp,
   Truck,
-  UserRound,
-  Users,
   X,
 } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import {
   createProduct,
+  deleteProductAction,
   logout,
-  updateProductQuantity,
 } from "../actions";
 import type {
   HistoryKind,
   OrderView,
   ProductDetail,
   PublicUser,
-  SubProduct,
 } from "../../lib/types";
 import type { RecentActivity } from "../../lib/queries";
 import SeagresLogo from "./seagres-logo";
@@ -406,80 +398,6 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
   );
 }
 
-interface FishermanControlProps {
-  productId: string;
-  sub: SubProduct;
-}
-
-function FishermanControl({ productId, sub }: FishermanControlProps) {
-  const [mode, setMode] = useState<HistoryKind | null>(null);
-  const [amount, setAmount] = useState("1");
-  const [busy, setBusy] = useState(false);
-
-  async function apply(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!mode) return;
-    setBusy(true);
-    try {
-      const res = await updateProductQuantity(productId, sub.id, mode, Number(amount));
-      if (res?.error) window.alert(res.error);
-    } finally {
-      setBusy(false);
-      setMode(null);
-    }
-  }
-
-  return (
-    <div className="fisherman-control">
-      <span>
-        <strong>{sub.name || sub.fishermanName}</strong>
-        <small>{sub.fishermanName} · {sub.quantity.toFixed(1)} kg · Rp{money.format(sub.price)}/kg</small>
-        <small className="sub-quality">
-          {sub.quality.cleanHandling ? "✓ Bersih" : "⚠ Perlu cek"} · {sub.quality.packaging}
-          {sub.quality.temperature ? ` · ${sub.quality.temperature}` : ""}
-          {sub.quality.dispatch ? ` · ${sub.quality.dispatch}` : ""}
-        </small>
-        {sub.geoLat !== null && sub.geoLng !== null ? (
-          <small className="sub-geo">
-            <MapPin /> {sub.geoLat.toFixed(4)}, {sub.geoLng.toFixed(4)}
-          </small>
-        ) : null}
-      </span>
-      {mode ? (
-        <form onSubmit={apply}>
-          <input
-            type="number"
-            min="0.5"
-            step="0.1"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            required
-          />
-          <button type="submit" className="accept" disabled={busy}>
-            {mode === "terima_nelayan" ? "Tambah" : "Kurangi"}
-          </button>
-          <button type="button" onClick={() => setMode(null)}>
-            Batal
-          </button>
-        </form>
-      ) : (
-        <span>
-          <button type="button" onClick={() => setMode("terima_nelayan")}>
-            + Terima
-          </button>
-          <button type="button" onClick={() => setMode("jual")}>
-            − Jual
-          </button>
-        </span>
-      )}
-    </div>
-  );
-}
-
-interface ProductCardProps {
-  product: ProductDetail;
-  onChanged: () => void;
-}
 function TrendChart({ series }: { series: number[] }) {
   const w = 720;
   const h = 200;
@@ -541,20 +459,26 @@ function TrendChart({ series }: { series: number[] }) {
     </svg>
   );
 }
-function ProductCard({ product, onChanged }: ProductCardProps) {
-  const [expanded, setExpanded] = useState(false);
-  const [subOpen, setSubOpen] = useState(false);
-  const traceUrl = typeof window === "undefined" ? `/produk/${product.id}` : `${window.location.origin}/produk/${product.id}`;
+interface ProductCardProps {
+  product: ProductDetail;
+  onDeleted: (id: string) => void;
+}
+function ProductCard({ product, onDeleted }: ProductCardProps) {
+  const [busy, setBusy] = useState(false);
 
-  function printLabel() {
-    const w = window.open("", "_blank", "width=420,height=560");
-    if (!w) return;
-    w.document.write(`<!doctype html><html><head><title>${product.name} · ${product.barcode}</title>
-<style>body{font-family:system-ui;padding:24px;text-align:center}.qr{width:240px;height:240px;margin:0 auto 12px}.name{font-weight:700;font-size:16px;margin:0 0 4px}.code{font-family:ui-monospace,monospace;font-size:12px;color:#555}</style>
-</head><body><div class="qr" id="qr"></div><p class="name">${product.name}</p><p class="code">${product.barcode}</p><script>
-(async()=>{const QRCode=await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm");const url=${JSON.stringify(traceUrl)};const data=await QRCode.toDataURL(url,{width:480,margin:1,color:{dark:"#1e5aa8",light:"#ffffff"}});document.getElementById("qr").innerHTML='<img src="'+data+'" width="240" height="240">';setTimeout(()=>window.print(),250);})();
-</script></body></html>`);
-    w.document.close();
+  async function handleDelete() {
+    if (!window.confirm(`Hapus "${product.name}"? Stok ${product.available.toFixed(1)} kg ikut terhapus dan tidak bisa dikembalikan.`)) return;
+    setBusy(true);
+    try {
+      const res = await deleteProductAction(product.id);
+      if (res?.error) {
+        window.alert(res.error);
+        return;
+      }
+      onDeleted(product.id);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -573,115 +497,35 @@ function ProductCard({ product, onChanged }: ProductCardProps) {
               <Scale /> {product.available.toFixed(1)} kg
             </span>
             <span className="price-chip">Rp{money.format(product.price)}/kg</span>
-            <span className="barcode-chip">{product.barcode}</span>
           </div>
-        </div>
-        <div className="pcr-actions">
-          <Link
-            href={`/pengepul/produk/${product.id}`}
-            className="ghost"
-            aria-label="Kelola sub-produk dan history"
-          >
-            <ListOrdered /> Kelola
-          </Link>
-          <button type="button" onClick={printLabel} className="ghost" aria-label="Cetak label">
-            <Printer /> Cetak
-          </button>
         </div>
       </div>
 
-      <div className="pcr-toggle-row">
+      <div className="pcr-actions">
+        <Link
+          href={`/pengepul/produk/${product.id}#tambah-sumber`}
+          className="primary-mini"
+          aria-label={`Terima hasil nelayan untuk ${product.name}`}
+        >
+          <Plus /> Terima
+        </Link>
+        <Link
+          href={`/pengepul/produk/${product.id}`}
+          className="ghost"
+          aria-label={`Lihat detail ${product.name}`}
+        >
+          <Eye /> Detail
+        </Link>
         <button
           type="button"
-          className="pcr-toggle"
-          onClick={() => setSubOpen((value) => !value)}
-          aria-expanded={subOpen}
+          onClick={handleDelete}
+          className="ghost danger"
+          disabled={busy}
+          aria-label={`Hapus ${product.name}`}
         >
-          <Users />
-          {subOpen ? "Sembunyikan" : "Lihat"} sumber ({product.subProducts.length})
-          <ChevronDown className={subOpen ? "rot" : ""} />
-        </button>
-
-        <button
-          type="button"
-          className="pcr-toggle"
-          onClick={() => setExpanded((value) => !value)}
-          aria-expanded={expanded}
-        >
-          <ClipboardCheck />
-          {expanded ? "Sembunyikan" : "Lihat"} riwayat event ({product.history.length})
-          <ChevronDown className={expanded ? "rot" : ""} />
+          <Trash2 /> {busy ? "Menghapus…" : "Hapus"}
         </button>
       </div>
-
-      {subOpen ? (
-        <div className="pcr-subproducts">
-          <h4>Sumber nelayan</h4>
-          {product.subProducts.length ? (
-            <div className="fisherman-grid">
-              {product.subProducts.map((sub) => (
-                <FishermanControl key={sub.id} productId={product.id} sub={sub} />
-              ))}
-            </div>
-          ) : (
-            <p className="hint">Belum ada sub-produk.</p>
-          )}
-        </div>
-      ) : null}
-
-      {expanded ? (
-        <div className="pcr-history">
-          {product.history.length ? (
-            product.history.map((event) => (
-              <div key={event.id} className="history-row">
-                <span>
-                  <strong>{HISTORY_KIND_LABELS[event.kind]}</strong>
-                  <small>{new Date(event.createdAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}</small>
-                </span>
-                {event.note ? <p>{event.note}</p> : null}
-                {event.points.length ? (
-                  <ul>
-                    {event.points.map((point) => (
-                      <li key={point.id}>
-                        <MapPin /> {point.lat.toFixed(4)}, {point.lng.toFixed(4)}
-                        {point.label ? ` — ${point.label}` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                {event.documents.length ? (
-                  <ul>
-                    {event.documents.map((doc) => (
-                      <li key={doc.id}>
-                        <a href={doc.url} target="_blank" rel="noreferrer">
-                          <FileText /> {doc.filename}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                {event.quantityDelta !== 0 ? (
-                  <em className={event.quantityDelta > 0 ? "delta-up" : "delta-down"}>
-                    {event.quantityDelta > 0 ? "+" : ""}
-                    {event.quantityDelta.toFixed(1)} kg
-                  </em>
-                ) : null}
-              </div>
-            ))
-          ) : (
-            <p className="hint">Belum ada event tercatat.</p>
-          )}
-          <div className="pcr-tracebar">
-            <QrCode />
-            <span>
-              <strong>Barcode:</strong> {product.barcode}
-            </span>
-            <Link href={`/produk/${product.id}`} className="link-button" target="_blank">
-              Buka kartu telusur
-            </Link>
-          </div>
-        </div>
-      ) : null}
     </article>
   );
 }
@@ -928,7 +772,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
         <section className="product-grid">
           {filtered.length ? (
             filtered.map((product) => (
-              <ProductCard key={product.id} product={product} onChanged={() => router.refresh()} />
+              <ProductCard key={product.id} product={product} onDeleted={(id) => setList((cur) => cur.filter((p) => p.id !== id))} />
             ))
           ) : (
             <div className="empty-state large">
