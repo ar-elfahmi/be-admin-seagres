@@ -2677,9 +2677,18 @@ a {
 .trace-card-compact { max-width: 220px; padding: 10px; font-size: 12px; }
 .trace-card-compact .trace-card-qr img { width: 120px; height: 120px; }
 
-/* Pengepul shell: sembunyikan beberapa hero/grid dari storefront */
-.pengepul-shell .hero-grid { padding: 0; }
-.pengepul-shell .page-shell { padding: 14px; }
+.trace-card-compact .trace-card-qr img { width: 120px; height: 120px; }
+.grade-summary { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--surface-soft, #f8fafc); border: 1px solid var(--line); border-radius: var(--radius); }
+.grade-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.grade-summary-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.grade-summary-tag { display: inline-flex; align-self: flex-start; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--primary, #1e5aa8); color: #fff; letter-spacing: 0.02em; }
+.grade-summary-tag[data-grade="A"] { background: #1e8a4a; }
+.grade-summary-tag[data-grade="B"] { background: #1e5aa8; }
+.grade-summary-tag[data-grade="C"] { background: #b56b00; }
+.grade-summary-tag[data-grade="D"] { background: #8a4040; }
+.grade-summary-price { font-size: 18px; font-weight: 700; color: var(--ink); display: inline-flex; align-items: baseline; gap: 3px; }
+.grade-summary-price small { font-size: 11px; font-weight: 500; color: var(--muted); }
+.grade-summary-card > small { color: var(--muted); font-size: 11.5px; }
 
 /* ============== DASHBOARD v2 ============== */
 .dashboard-header {
@@ -2870,8 +2879,11 @@ a {
 }
 @media (max-width: 600px) {
   .stat-strip { grid-template-columns: 1fr; }
-  .pcr-thumb { width: 56px; height: 56px; flex: 0 0 56px; }
-  .pcr-top { grid-template-columns: 56px minmax(0, 1fr); }
+  .pcr-card-row .pcr-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-right: 0; }
+  .pcr-card-row .pcr-thumb { width: 100%; height: 140px; flex: 0 0 auto; border-radius: var(--radius-sm); }
+  .pcr-card-row .pcr-menu { position: absolute; top: 8px; right: 8px; }
+  .pcr-card-row .pcr-info strong { white-space: normal; }
+  .pcr-card-row .pcr-info small { white-space: normal; }
 }
 .dashboard-grid {
   display: grid;

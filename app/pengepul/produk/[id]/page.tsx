@@ -17,14 +17,14 @@ import SeagresLogo from "@/app/components/seagres-logo";
 import TerimaButton from "./terima-button";
 import TraceCard from "@/app/components/trace-card";
 import TambahRiwayatButton from "./tambah-riwayat-button";
-import { HISTORY_STAGE_LABELS, type ProductDetail, type ProductHistory } from "@/lib/types";
-
-export const dynamic = "force-dynamic";
+import { type ProductDetail, type ProductGrade, type ProductHistory } from "@/lib/types";
 
 interface PageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ show?: string }>;
 }
+
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const detail = await getProductDetail(id);
@@ -67,6 +67,37 @@ function groupByFisherman(detail: ProductDetail) {
   });
 }
 
+interface GradeSummary {
+  grade: ProductGrade;
+  quantity: number;
+  pricePerKg: number;
+  receipts: number;
+}
+
+function groupByGrade(detail: ProductDetail): GradeSummary[] {
+  const map = new Map<ProductGrade, { quantity: number; weighted: number; receipts: number }>();
+  for (const sub of detail.subProducts) {
+    if (!sub.grade) continue;
+    const entry = map.get(sub.grade) ?? { quantity: 0, weighted: 0, receipts: 0 };
+    entry.quantity += sub.quantity;
+    entry.weighted += sub.price * sub.quantity;
+    entry.receipts += 1;
+    map.set(sub.grade, entry);
+  }
+  const order: ProductGrade[] = ["A", "B", "C", "D"];
+  return order
+    .filter((g) => map.has(g))
+    .map((g) => {
+      const entry = map.get(g)!;
+      return {
+        grade: g,
+        quantity: entry.quantity,
+        pricePerKg: entry.quantity > 0 ? entry.weighted / entry.quantity : 0,
+        receipts: entry.receipts,
+      };
+    });
+}
+
 export default async function PengepulProdukPage({ params }: PageProps) {
   const user = await currentUser();
   if (!user) redirect("/");
@@ -84,6 +115,7 @@ export default async function PengepulProdukPage({ params }: PageProps) {
     );
   }
   const groups = groupByFisherman(detail);
+  const gradeRows = groupByGrade(detail);
 
   return (
     <main className="lot-page">
@@ -134,14 +166,44 @@ export default async function PengepulProdukPage({ params }: PageProps) {
               <span className="lot-stock">
                 <Scale aria-hidden="true" /> {detail.available.toFixed(1)} kg total
               </span>
-              <TerimaButton productId={detail.id} productName={detail.name} productType={detail.type} productSize={detail.size} />
+              <TerimaButton
+                productId={detail.id}
+                productName={detail.name}
+                productType={detail.type}
+                productSize={detail.size}
+              />
             </div>
           </div>
+
+          <section className="grade-summary" aria-label="Ringkasan harga per grade">
+            <h2 className="lot-steps-title">Harga per grade</h2>
+            {gradeRows.length ? (
+              <div className="grade-summary-grid">
+                {gradeRows.map((row) => (
+                  <article key={row.grade} className="grade-summary-card">
+                    <span className="grade-summary-tag" data-grade={row.grade}>
+                      Grade {row.grade}
+                    </span>
+                    <span className="grade-summary-price">
+                      Rp{money.format(Math.round(row.pricePerKg))}
+                      <small>/kg</small>
+                    </span>
+                    <small>
+                      {row.quantity.toFixed(1)} kg · {row.receipts} penerimaan
+                    </small>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p>Belum ada penerimaan dengan grade.</p>
+            )}
+          </section>
 
           <section className="sub-products">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <h2 className="lot-steps-title">
-                <Package aria-hidden="true" /> Sumber nelayan ({groups.length} nelayan · {detail.subProducts.length} penerimaan)
+                <Package aria-hidden="true" /> Sumber nelayan ({groups.length} nelayan ·{" "}
+                {detail.subProducts.length} penerimaan)
               </h2>
             </div>
             {groups.length ? (
@@ -173,13 +235,25 @@ export default async function PengepulProdukPage({ params }: PageProps) {
                                 <small>{formatDateTime(creation?.createdAt ?? sub.createdAt)}</small>
                               </header>
                               <dl>
-                                <div><dt>Jumlah</dt><dd>{sub.quantity.toFixed(1)} {sub.unit}</dd></div>
-                                <div><dt>Harga</dt><dd>Rp{money.format(sub.price)}/kg · min. {sub.minOrderKg.toFixed(1)} kg</dd></div>
+                                <div>
+                                  <dt>Jumlah</dt>
+                                  <dd>
+                                    {sub.quantity.toFixed(1)} {sub.unit}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Harga</dt>
+                                  <dd>
+                                    Rp{money.format(sub.price)}/kg · min.{" "}
+                                    {sub.minOrderKg.toFixed(1)} kg
+                                  </dd>
+                                </div>
                                 <div>
                                   <dt>Kualitas</dt>
                                   <dd>
                                     {sub.grade ? `Grade ${sub.grade} · ` : ""}
-                                    {sub.quality.cleanHandling ? "✓ Bersih" : "⚠ Perlu cek"} · {sub.quality.packaging}
+                                    {sub.quality.cleanHandling ? "✓ Bersih" : "⚠ Perlu cek"} ·{" "}
+                                    {sub.quality.packaging}
                                     {sub.quality.temperature ? ` · ${sub.quality.temperature}` : ""}
                                     {sub.quality.dispatch ? ` · ${sub.quality.dispatch}` : ""}
                                   </dd>
@@ -188,33 +262,57 @@ export default async function PengepulProdukPage({ params }: PageProps) {
                                   <dt>Lokasi</dt>
                                   <dd>
                                     {sub.geoLat !== null && sub.geoLng !== null ? (
-                                      <><MapPin aria-hidden="true" /> {sub.geoLat.toFixed(4)}, {sub.geoLng.toFixed(4)}</>
+                                      <>
+                                        <MapPin aria-hidden="true" /> {sub.geoLat.toFixed(4)},{" "}
+                                        {sub.geoLng.toFixed(4)}
+                                      </>
                                     ) : (
                                       "Lokasi tidak diisi"
                                     )}
                                   </dd>
                                 </div>
-                                {creation?.note ? <div><dt>Catatan</dt><dd>{creation.note}</dd></div> : null}
+                                {creation?.note ? (
+                                  <div>
+                                    <dt>Catatan</dt>
+                                    <dd>{creation.note}</dd>
+                                  </div>
+                                ) : null}
                               </dl>
                               {creation && creation.documents.length ? (
                                 <div className="receipt-docs">
-                                  <span><FileText aria-hidden="true" /> Bukti ({creation.documents.length})</span>
+                                  <span>
+                                    <FileText aria-hidden="true" /> Bukti ({creation.documents.length})
+                                  </span>
                                   <ul>
                                     {creation.documents.map((doc) => (
                                       <li key={doc.id}>
-                                        <a href={doc.url} target="_blank" rel="noreferrer">{doc.filename}</a>
+                                        <a href={doc.url} target="_blank" rel="noreferrer">
+                                          {doc.filename}
+                                        </a>
                                       </li>
                                     ))}
                                   </ul>
                                 </div>
                               ) : null}
                               <footer className="receipt-foot">
-                                <TambahRiwayatButton productId={detail.id} subProductId={sub.id} />
-                                <Link href={`/trace/${sub.barcode}`} className="link-button" target="_blank">
+                                <TambahRiwayatButton
+                                  productId={detail.id}
+                                  subProductId={sub.id}
+                                />
+                                <Link
+                                  href={`/trace/${sub.barcode}`}
+                                  className="link-button"
+                                  target="_blank"
+                                >
                                   Lihat kartu telusur
                                 </Link>
                               </footer>
-                              <TraceCard barcode={sub.barcode} productName={sub.name || sub.fishermanName} url={`/trace/${sub.barcode}`} compact />
+                              <TraceCard
+                                barcode={sub.barcode}
+                                productName={sub.name || sub.fishermanName}
+                                url={`/trace/${sub.barcode}`}
+                                compact
+                              />
                             </li>
                           );
                         })}
@@ -227,7 +325,6 @@ export default async function PengepulProdukPage({ params }: PageProps) {
               <p>Belum ada sumber nelayan. Tekan Terima untuk mencatat penerimaan pertama.</p>
             )}
           </section>
-
         </div>
       </article>
 
