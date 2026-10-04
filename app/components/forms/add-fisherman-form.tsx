@@ -180,7 +180,7 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
           />
         </label>
         <label>
-          Harga dari nelayan (Rp/kg)
+          Harga per kg
           <input
             type="number"
             min="0"
@@ -244,7 +244,7 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
             checked={cleanHandling}
             onChange={(e) => setCleanHandling(e.target.checked)}
           />
-          Penanganan bersih
+          Penanganan bersih (ikan tidak rusak, tanpa es kotor)
         </label>
         <div className="form-grid">
           <label>
@@ -261,7 +261,7 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
           </label>
         </div>
         <label>
-          Metode pengiriman
+          Metode pengiriman ke pembeli
           <input value={dispatch} onChange={(e) => setDispatch(e.target.value)} placeholder="ex: Mobil box berpendingin" />
         </label>
       </fieldset>
@@ -297,7 +297,7 @@ export default function AddFishermanForm({ productId, lockedProductName, onSaved
       ) : null}
       <label>
         Catatan event <small>(opsional)</small>
-        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="ex: Hasil tangkapan 2 April" />
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="ex: Hasil tangkapan 2 April" rows={3} />
       </label>
       <button className="primary-button form-submit" type="submit" disabled={busy}>
         {busy ? "Menyimpan…" : <><Plus /> Catat sumber nelayan</>}

@@ -298,7 +298,7 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
                 />
               </label>
               <label>
-                Harga dari nelayan (Rp/kg)
+                Harga per kg
                 <input
                   type="number"
                   min="0"
