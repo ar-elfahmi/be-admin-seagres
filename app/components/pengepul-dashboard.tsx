@@ -75,7 +75,12 @@ function formatRelative(iso: string): string {
   return `${d} hari lalu`;
 }
 type TrendCategory = "Semua" | "Bandeng" | "Udang" | "Kerang" | "Olahan";
-const TREND_LABELS = ["W1", "W2", "W3", "W4"];
+const TREND_LABELS = [
+  { code: "W1", range: "1–7 Okt", mid: 4 },
+  { code: "W2", range: "8–14 Okt", mid: 11 },
+  { code: "W3", range: "15–21 Okt", mid: 18 },
+  { code: "W4", range: "22–28 Okt", mid: 25 },
+];
 const TREND_SERIES: Record<TrendCategory, number[]> = {
   Semua: [120, 132, 101, 134],
   Bandeng: [40, 52, 31, 64],
@@ -479,26 +484,69 @@ interface ProductCardProps {
   onChanged: () => void;
 }
 function TrendChart({ series }: { series: number[] }) {
-  const w = 320;
-  const h = 96;
-  const padX = 6;
-  const padY = 8;
-  const max = Math.max(...series, 1);
-  const stepX = (w - padX * 2) / Math.max(series.length - 1, 1);
+  const w = 360;
+  const h = 140;
+  const padX = 28;
+  const padY = 14;
+  const labelArea = 16;
+  const innerW = w - padX * 2;
+  const innerH = h - padY * 2 - labelArea;
+  const maxRaw = Math.max(...series, 1);
+  const yStep = maxRaw > 200 ? 50 : maxRaw > 80 ? 20 : 10;
+  const yMax = Math.ceil(maxRaw / yStep) * yStep;
+  const stepX = innerW / Math.max(series.length - 1, 1);
   const points = series.map((v, i) => {
     const x = padX + i * stepX;
-    const y = h - padY - (v / max) * (h - padY * 2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
+    const y = padY + innerH - (v / yMax) * innerH;
+    return { x, y };
   });
-  const area = `${padX},${h - padY} ${points.join(" ")} ${(padX + (series.length - 1) * stepX).toFixed(1)},${h - padY}`;
+  const baselineY = padY + innerH;
+  const yTicks: number[] = [];
+  for (let v = 0; v <= yMax; v += yStep) yTicks.push(v);
+  const xLabels = TREND_LABELS.map((label, idx) => ({
+    x: padX + idx * stepX,
+    code: label.code,
+    range: label.range,
+    isCurrent: idx === TREND_LABELS.length - 1,
+  }));
+  const linePoints = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const areaPoints = `${padX},${baselineY} ${linePoints} ${(padX + (series.length - 1) * stepX).toFixed(1)},${baselineY}`;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tren penjualan 12 periode terakhir" preserveAspectRatio="none" className="trend-svg">
-      <polygon points={area} className="trend-area" />
-      <polyline points={points.join(" ")} className="trend-line" />
-      {points.map((p, i) => (
-        <circle key={i} cx={Number(p.split(",")[0])} cy={Number(p.split(",")[1])} r={2.4} className="trend-dot" />
-      ))}
-    </svg>
+    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tren penjualan Oktober 2026" preserveAspectRatio="none" className="trend-svg">
+      <g className="trend-grid-y">
+          {yTicks.map((tk) => {
+            const y = padY + innerH - (tk / yMax) * innerH;
+            return (
+              <g key={`y-${tk}`}>
+                <line x1={padX} x2={w - padX} y1={y} y2={y} />
+                <text x={padX - 6} y={y + 3} textAnchor="end">{tk}</text>
+              </g>
+            );
+          })}
+        </g>
+        <g className="trend-grid-x">
+          {points.map((p, i) => (
+            <line key={`x-${i}`} x1={p.x} x2={p.x} y1={padY} y2={baselineY} />
+          ))}
+        </g>
+        <polygon points={areaPoints} className="trend-area" />
+        <polyline points={linePoints} className="trend-line" />
+        {points.map((p, i) => (
+          <circle key={`dot-${i}`} cx={p.x} cy={p.y} r={3} className="trend-dot" />
+        ))}
+        <g className="trend-axis-x">
+          {xLabels.map((x) => (
+            <g key={x.code}>
+              <text x={x.x} y={baselineY + 12} textAnchor="middle" className={x.isCurrent ? "is-current" : ""}>
+                {x.code}
+              </text>
+              <text x={x.x} y={baselineY + 24} textAnchor="middle" className={x.isCurrent ? "is-current" : ""}>
+                {x.range}
+              </text>
+            </g>
+          ))}
+        </g>
+      </svg>
   );
 }
 function ProductCard({ product, onChanged }: ProductCardProps) {
@@ -764,9 +812,9 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
             </div>
             <ul className="trend-axis" aria-hidden="true">
               {TREND_LABELS.map((label, idx) => (
-                <li key={label} className={idx === TREND_LABELS.length - 1 ? "is-current" : ""}>
+                <li key={label.code} className={idx === TREND_LABELS.length - 1 ? "is-current" : ""}>
                   <span className="trend-axis-dot" />
-                  <span className="trend-axis-label">{label}</span>
+                  <span className="trend-axis-label">{label.code} · {label.range}</span>
                   <span className="trend-axis-val">{TREND_SERIES.Semua[idx]} kg</span>
                 </li>
               ))}
