@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
   ArrowRight,
   BadgeCheck,
@@ -452,7 +453,7 @@ function TopHeader({
             </button>
             <span className="header-divider" />
             <span className="role-pill">{isCustomer ? "Pembeli" : "Pengepul"}</span>
-            {!isCustomer ? <a className="sell-btn" href="/pengepul"><Plus /> Dasbor</a> : null}
+            {!isCustomer ? <Link className="sell-btn" href="/dashboard"><Plus /> Dasbor</Link> : null}
             <button type="button" className="avatar" onClick={onProfile} aria-label={`Buka profil ${user.name}`}>{user.initials}</button>
           </div>
         </div>
@@ -650,7 +651,7 @@ export default function Storefront({ user, initialProducts, initialOrders, price
     await logout();
     setModal(null);
     setBusy(false);
-    router.refresh();
+    router.push("/");
   }
 
   function scrollToCatalog() {
@@ -725,7 +726,7 @@ export default function Storefront({ user, initialProducts, initialOrders, price
               <span className="cat-icon"><Scale aria-hidden="true" /></span>
               <span>Harga</span>
             </button>
-            {!isCustomer ? <button type="button" onClick={() => router.push("/pengepul")}>
+            {!isCustomer ? <button type="button" onClick={() => router.push("/dashboard")}>
               <span className="cat-icon cat-plus"><Plus aria-hidden="true" /></span>
               <span>Dasbor</span>
             </button> : null}
@@ -878,7 +879,7 @@ export default function Storefront({ user, initialProducts, initialOrders, price
           </div>
           <div>
             <b>{isCustomer ? "Belanja" : "Dasbor"}</b>
-            <button type="button" onClick={() => (isCustomer ? scrollToCatalog() : router.push("/pengepul"))}>{isCustomer ? "Cari produk segar" : "Buka dasbor pengepul"}</button>
+            <button type="button" onClick={() => (isCustomer ? scrollToCatalog() : router.push("/dashboard"))}>{isCustomer ? "Cari produk segar" : "Buka dasbor pengepul"}</button>
             <button type="button" onClick={() => setModal({ type: "orders" })}>{isCustomer ? "Pre-order saya" : "Pesanan masuk"}</button>
           </div>
           <div>
@@ -901,7 +902,7 @@ export default function Storefront({ user, initialProducts, initialOrders, price
         {isCustomer ? <button type="button" className="bottom-sell bottom-price" onClick={() => goToId("harga")}>
           <Scale />
           <span>Harga</span>
-        </button> : <button type="button" className="bottom-sell" onClick={() => router.push("/pengepul")}>
+        </button> : <button type="button" className="bottom-sell" onClick={() => router.push("/dashboard")}>
           <Plus />
           <span>Dasbor</span>
         </button>}

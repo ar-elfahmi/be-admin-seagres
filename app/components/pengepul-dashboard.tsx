@@ -631,7 +631,7 @@ export default function PengepulDashboard({ user, products, orders }: PengepulDa
     setBusy(true);
     await logout();
     setBusy(false);
-    router.refresh();
+    router.push("/");
   }
 
   return (

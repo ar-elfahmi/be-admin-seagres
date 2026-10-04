@@ -24,7 +24,7 @@ export default function AuthScreen() {
     try {
       const res = await login(email, pass);
       if (res?.error) setError(res.error);
-      else router.refresh();
+      else router.push("/dashboard");
     } catch {
       setError("Login belum bisa diproses. Coba lagi sebentar.");
     } finally {
@@ -54,7 +54,7 @@ export default function AuthScreen() {
         password: String(data.get("password") || ""),
       });
       if (res?.error) setError(res.error);
-      else router.refresh();
+      else router.push("/dashboard");
     } catch {
       setError("Pendaftaran belum bisa diproses. Coba lagi sebentar.");
     } finally {
