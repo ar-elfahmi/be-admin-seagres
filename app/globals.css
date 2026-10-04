@@ -2798,8 +2798,8 @@ a {
 .pcr-actions .ghost:hover { border-color: var(--primary); color: var(--primary); }
 .pcr-actions .primary-mini { font-weight: 700; border-color: var(--primary); background: var(--primary); color: #fff; }
 .pcr-actions .primary-mini:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
-.pcr-actions .sell-mini { font-weight: 700; border-color: #d97706; background: #f59e0b; color: #fff; }
-.pcr-actions .sell-mini:hover:not(:disabled) { background: #d97706; border-color: #d97706; }
+.pcr-actions .sell-mini { font-weight: 700; border-color: #059669; background: #059669; color: #fff; }
+.pcr-actions .sell-mini:hover:not(:disabled) { background: #047857; border-color: #047857; }
 .pcr-actions .ghost:disabled, .pcr-actions .primary-mini:disabled, .pcr-actions .sell-mini:disabled { opacity: 0.6; cursor: not-allowed; }
 .pcr-menu { position: absolute; top: 0; right: 0; }
 .pcr-kebab { width: 30px; height: 30px; color: var(--muted); }
