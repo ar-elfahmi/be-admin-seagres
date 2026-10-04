@@ -46,7 +46,6 @@ import type {
 } from "../../lib/types";
 import SeagresLogo from "./seagres-logo";
 import MarketFooter from "./market-footer";
-import TraceCard from "./trace-card";
 
 interface SlideItem {
   id: string;
@@ -201,29 +200,26 @@ function ProductDetail({
       </dl>
 
       <section className="fishermen-detail">
-        <h3>Sumber nelayan</h3>
+        <h3>Variasi</h3>
         {product.subProducts.length ? (
           <ul>
-            {product.subProducts.map((sub: SubProduct) => (
-              <li key={sub.id}>
-                <strong>{sub.name || sub.fishermanName}</strong>
-                <span>
-                  {sub.fishermanName} · {sub.quantity.toFixed(1)} kg · Rp{money.format(sub.price)}/kg
-                </span>
-                <span>
-                  {sub.quality.cleanHandling ? "Bersih" : "Perlu cek"} · {sub.quality.packaging}
-                  {sub.quality.temperature ? ` · ${sub.quality.temperature}` : ""}
-                </span>
-                <span>
-                  {sub.geoLat !== null && sub.geoLng !== null
-                    ? `${sub.geoLat.toFixed(4)}, ${sub.geoLng.toFixed(4)}`
-                    : "lokasi umum"}
-                </span>
+            {groupByFisherman(product.subProducts).map((group, gi) => (
+              <li key={`variation-${gi}`} className="variation-group">
+                {group.map((sub: SubProduct) => (
+                  <div key={sub.id} className="variation-item">
+                    <strong>{sub.name}</strong>
+                    <span>{sub.quantity.toFixed(1)} kg · Rp{money.format(sub.price)}/kg</span>
+                    <span>
+                      {sub.quality.cleanHandling ? "Bersih" : "Perlu cek"} · {sub.quality.packaging}
+                      {sub.quality.temperature ? ` · ${sub.quality.temperature}` : ""}
+                    </span>
+                  </div>
+                ))}
               </li>
             ))}
           </ul>
         ) : (
-          <p>Belum ada data sub-produk.</p>
+          <p>Belum ada variasi.</p>
         )}
       </section>
 
@@ -234,7 +230,7 @@ function ProductDetail({
             {product.history.map((event: ProductHistory) => (
               <li key={event.id}>
                 <strong>{event.kind === "tambah_produk" ? "Tambah produk" : event.kind === "terima_nelayan" ? "Terima dari nelayan" : "Jual"}</strong>
-                <span>{new Date(event.createdAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })} · {event.actor}</span>
+                <span>{new Date(event.createdAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}</span>
                 {event.note ? <p>{event.note}</p> : null}
                 {event.points.length ? (
                   <ul>
@@ -286,9 +282,6 @@ function ProductDetail({
           Pengepul {product.organization} · {product.location}
         </p>
       </div>
-
-      <TraceCard barcode={product.barcode} productName={product.name} url={`${typeof window === "undefined" ? "" : window.location.origin}/produk/${product.id}`} />
-
       <button className="report-link" type="button" onClick={onClose}>Tutup detail</button>
     </div>
   );
@@ -568,6 +561,21 @@ function groupByCollector(products: ProductDetail[]): CollectorGroup[] {
     map.set(product.organization, list);
   }
   return Array.from(map.entries()).map(([organization, items]) => ({ organization, products: items }));
+}
+function groupByFisherman(subProducts: SubProduct[]): SubProduct[][] {
+  const groups: SubProduct[][] = [];
+  const map = new Map<string, number>();
+  for (const sub of subProducts) {
+    const key = sub.fishermanName || "";
+    const idx = map.get(key);
+    if (idx === undefined) {
+      map.set(key, groups.length);
+      groups.push([sub]);
+    } else {
+      groups[idx].push(sub);
+    }
+  }
+  return groups;
 }
 
 export default function Storefront({ user, initialProducts, initialOrders, prices }: StorefrontProps) {
