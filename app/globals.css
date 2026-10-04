@@ -2839,7 +2839,7 @@ a {
 .filter-chips button.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
 .add-product { height: 40px; padding: 0 18px; }
 
-.product-stack { display: flex; flex-direction: column; gap: 12px; }
+.product-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
 
 .product-card-row {
   background: #fff;
@@ -2928,28 +2928,27 @@ a {
 .empty-state.large button { margin-top: 6px; }
 
 @media (max-width: 980px) {
-  .dashboard-header-inner { grid-template-columns: auto 1fr auto; }
-  .dashboard-search { grid-column: 1 / -1; max-width: none; justify-self: stretch; }
-  .stat-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-grid-rows { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-grid-rows .activity-card, .dashboard-grid-rows .orders-card { grid-column: auto; }
+  .product-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
   .stat-strip { grid-template-columns: 1fr; }
   .pcr-top { grid-template-columns: 56px minmax(0, 1fr); }
   .pcr-actions { grid-column: 1 / -1; }
 }
-
 /* ============== DASHBOARD CARDS GRID ============== */
 .dashboard-grid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-auto-flow: row;
   gap: 14px;
 }
-.dash-card {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  display: flex;
+.dashboard-grid-rows { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.dashboard-grid-rows .trend-card { grid-column: 1 / -1; }
+.dashboard-grid-rows .top-card { grid-column: 1 / -1; }
+.dashboard-grid-rows .activity-card { grid-column: 1 / 2; }
+.dashboard-grid-rows .orders-card { grid-column: 2 / 3; }
   flex-direction: column;
   gap: 10px;
   box-shadow: var(--shadow-sm);
@@ -2969,29 +2968,20 @@ a {
 .dash-card-sub { color: var(--muted); font-size: 11.5px; }
 
 /* Trend chart */
-.trend-card { grid-column: 1 / 2; }
-.trend-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-.trend-chips button {
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: #fff;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--ink-2, #475569);
-  cursor: pointer;
-}
-.trend-chips button:hover { color: var(--primary); border-color: var(--primary); }
-.trend-chips button.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
-.trend-chart-wrap { width: 100%; height: 96px; }
+.trend-card { grid-column: 1 / -1; }
+.trend-chart-wrap { width: 100%; height: 120px; margin-top: 4px; }
 .trend-svg { width: 100%; height: 100%; display: block; }
 .trend-svg .trend-area { fill: var(--primary-soft); opacity: 0.7; }
-.trend-svg .trend-line { fill: none; stroke: var(--primary); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.trend-svg .trend-line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .trend-svg .trend-dot { fill: #fff; stroke: var(--primary); stroke-width: 1.6; }
-.trend-foot { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; }
-.trend-delta { color: #047857; font-weight: 700; }
-
-/* Top products */
+.trend-axis { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.trend-axis li { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; background: var(--surface-2, #f8fafc); border-radius: var(--radius-sm); position: relative; }
+.trend-axis .trend-axis-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--line); display: inline-block; }
+.trend-axis .is-current .trend-axis-dot { background: var(--primary); box-shadow: 0 0 0 4px rgba(30, 90, 168, 0.12); }
+.trend-axis .trend-axis-label { font-size: 11.5px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.trend-axis .trend-axis-val { font-size: 14px; color: var(--ink); font-weight: 700; }
+.trend-axis .is-current .trend-axis-val { color: var(--primary); }
+.trend-axis li.is-current { background: var(--primary-soft, #e6efff); border: 1px solid var(--primary); }
 .top-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .top-list li {
   display: grid;
@@ -3063,17 +3053,9 @@ a {
 .dash-card-link:hover { border-color: var(--primary); }
 .dash-card-link svg { width: 14px; height: 14px; }
 
-@media (max-width: 980px) {
-  .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
-  .trend-card, .activity-card { grid-column: auto; }
-}
 @media (max-width: 600px) {
   .top-list li, .orders-mini li { grid-template-columns: 1fr auto; }
   .top-list li .top-qty, .orders-mini li .order-product { grid-column: 1 / -1; }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-  .auth-card, .auth-card .form > *, .auth-photo, .auth-brand-side::after, .auth-brand-content { animation: none !important; opacity: 1 !important; transform: none !important; }
-  .register-step.active { animation: none !important; }
-}
+/* end dashboard responsive */
+/* end responsive */

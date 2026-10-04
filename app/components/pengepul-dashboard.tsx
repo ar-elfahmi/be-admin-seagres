@@ -75,12 +75,13 @@ function formatRelative(iso: string): string {
   return `${d} hari lalu`;
 }
 type TrendCategory = "Semua" | "Bandeng" | "Udang" | "Kerang" | "Olahan";
+const TREND_LABELS = ["W1", "W2", "W3", "W4"];
 const TREND_SERIES: Record<TrendCategory, number[]> = {
-  Semua: [120, 132, 101, 134, 90, 230, 210, 182, 233, 211, 192, 250],
-  Bandeng: [40, 52, 31, 64, 30, 80, 70, 52, 73, 61, 62, 90],
-  Udang: [30, 40, 25, 35, 25, 60, 55, 45, 60, 55, 50, 70],
-  Kerang: [25, 22, 25, 20, 20, 45, 40, 45, 50, 45, 40, 50],
-  Olahan: [25, 18, 20, 15, 15, 45, 45, 40, 50, 50, 40, 40],
+  Semua: [120, 132, 101, 134],
+  Bandeng: [40, 52, 31, 64],
+  Udang: [30, 40, 25, 35],
+  Kerang: [25, 22, 25, 20],
+  Olahan: [25, 18, 20, 15],
 };
 const TOP_PRODUCTS = [
   { name: "Bandeng segar 3–4 ekor", qty: 142, growth: 18, type: "Bandeng" },
@@ -642,7 +643,7 @@ function ProductCard({ product, onChanged }: ProductCardProps) {
 export default function PengepulDashboard({ user, products, orders, activity }: PengepulDashboardProps) {
   const [list, setList] = useState<ProductDetail[]>(products);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Semua");
-  const [trend, setTrend] = useState<TrendCategory>("Semua");
+
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState<"create" | "profile" | "orders" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -752,32 +753,27 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
           </div>
         </section>
 
-        <section className="dashboard-grid">
+        <section className="dashboard-grid dashboard-grid-rows">
           <article className="dash-card trend-card">
             <header className="dash-card-head">
               <h3><TrendingUp aria-hidden="true" /> Tren penjualan</h3>
-              <span className="dash-card-sub">12 periode terakhir · mock</span>
+              <span className="dash-card-sub">Oktober 2026 · akumulasi kg</span>
             </header>
-            <div className="trend-chips" role="tablist" aria-label="Pilih kategori tren">
-              {(["Semua", "Bandeng", "Udang", "Kerang", "Olahan"] as const).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  role="tab"
-                  aria-selected={trend === item}
-                  className={trend === item ? "selected" : ""}
-                  onClick={() => setTrend(item)}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
             <div className="trend-chart-wrap">
-              <TrendChart series={TREND_SERIES[trend]} />
+              <TrendChart series={TREND_SERIES.Semua} />
             </div>
+            <ul className="trend-axis" aria-hidden="true">
+              {TREND_LABELS.map((label, idx) => (
+                <li key={label} className={idx === TREND_LABELS.length - 1 ? "is-current" : ""}>
+                  <span className="trend-axis-dot" />
+                  <span className="trend-axis-label">{label}</span>
+                  <span className="trend-axis-val">{TREND_SERIES.Semua[idx]} kg</span>
+                </li>
+              ))}
+            </ul>
             <footer className="trend-foot">
-              <span>Total {money.format(TREND_SERIES[trend].reduce((a, b) => a + b, 0))} kg</span>
-              <span className="trend-delta">+12% vs periode lalu</span>
+              <span>Total bulan ini {money.format(TREND_SERIES.Semua.reduce((a, b) => a + b, 0))} kg</span>
+              <span className="trend-delta">+12% vs September</span>
             </footer>
           </article>
 
@@ -848,16 +844,14 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
                 ))}
               </ul>
             ) : (
-              <div className="empty-state inline">
-                <ShoppingCart />
-                <h3>Tidak ada pesanan menunggu</h3>
-              </div>
+              <p className="activity-empty">Belum ada pesanan baru.</p>
             )}
             <button type="button" className="dash-card-link" onClick={() => setModal("orders")}>
               Buka semua pesanan <ChevronRight aria-hidden="true" />
             </button>
           </article>
         </section>
+
 
         <section className="action-bar">
           <div className="filter-chips" role="tablist" aria-label="Filter komoditas">
@@ -879,7 +873,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
           </button>
         </section>
 
-        <section className="product-stack">
+        <section className="product-grid">
           {filtered.length ? (
             filtered.map((product) => (
               <ProductCard key={product.id} product={product} onChanged={() => router.refresh()} />
