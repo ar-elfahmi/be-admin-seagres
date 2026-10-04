@@ -2810,11 +2810,13 @@ a {
   position: relative;
   width: 64px;
   height: 64px;
+  aspect-ratio: 1 / 1;
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--surface-2, #eef3fb);
   flex: 0 0 64px;
 }
+.pcr-thumb img { object-fit: cover; object-position: center; }
 .pcr-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
 .pcr-info strong { font-size: 15px; color: var(--ink); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pcr-info small { color: var(--muted); font-size: 12px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2865,28 +2867,6 @@ a {
 .empty-state.large p { max-width: 360px; }
 .empty-state.large button { margin-top: 6px; }
 
-@media (max-width: 980px) {
-  .dashboard-grid-rows {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "trend"
-      "top"
-      "activity"
-      "orders";
-  }
-}
-@media (max-width: 900px) {
-  .stat-strip { grid-template-columns: 1fr 1fr; }
-  .pcr-top { grid-template-columns: 56px minmax(0, 1fr); }
-}
-@media (max-width: 600px) {
-  .stat-strip { grid-template-columns: 1fr; }
-  .pengepul-shell .product-card-row .pcr-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-right: 0; }
-  .pengepul-shell .product-card-row .pcr-thumb { width: 100%; height: 140px; flex: 0 0 auto; border-radius: var(--radius-sm); }
-  .pengepul-shell .product-card-row .pcr-menu { position: absolute; top: 8px; right: 8px; }
-  .pengepul-shell .product-card-row .pcr-info strong { white-space: normal; }
-  .pengepul-shell .product-card-row .pcr-info small { white-space: normal; }
-}
 .dashboard-grid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
@@ -2905,6 +2885,29 @@ a {
 .dashboard-grid-rows .trend-card { grid-area: trend; }
 .dashboard-grid-rows .top-card { grid-area: top; }
 .dashboard-grid-rows .activity-card { grid-area: activity; }
+
+@media (max-width: 980px) {
+  .dashboard-grid-rows {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "trend"
+      "top"
+      "activity"
+      "orders";
+  }
+}
+@media (max-width: 900px) {
+  .stat-strip { grid-template-columns: 1fr 1fr; }
+  .pcr-top { grid-template-columns: 56px minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .stat-strip { grid-template-columns: 1fr; }
+  .pengepul-shell .product-card-row .pcr-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-right: 0; }
+  .pengepul-shell .product-card-row .pcr-thumb { width: 100%; aspect-ratio: 16 / 10; flex: 0 0 auto; border-radius: var(--radius-sm); }
+  .pengepul-shell .product-card-row .pcr-menu { position: absolute; top: 8px; right: 8px; }
+  .pengepul-shell .product-card-row .pcr-info strong { white-space: normal; }
+  .pengepul-shell .product-card-row .pcr-info small { white-space: normal; }
+}
 .dash-card {
   background: #fff;
   border: 1px solid var(--line);
@@ -3068,16 +3071,6 @@ a {
 
 
 
-.pengepul-shell .bottom-nav .bottom-sell span { display: inline; font-size: 10px; font-weight: 700; margin-top: 2px; }
-.pengepul-shell .bottom-nav .bottom-sell {
-  width: 56px;
-  height: 56px;
-  margin-top: -22px;
-  flex-direction: column;
-  gap: 0;
-  padding: 4px;
-}
-.pengepul-shell .bottom-nav .bottom-sell svg { width: 20px; height: 20px; }
 .pengepul-shell .bottom-nav i {
   position: absolute;
   top: 2px;

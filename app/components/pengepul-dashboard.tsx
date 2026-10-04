@@ -561,7 +561,7 @@ function ProductCard({ product, onDeleted, onSold, onReceived }: ProductCardProp
     <article className="product-card-row">
       <div className="pcr-top">
         <span className="pcr-thumb">
-          <Image src={product.image} alt={product.name} fill sizes="64px" unoptimized={!isLocalAsset(product.image)} />
+          <Image src={product.image} alt={product.name} fill sizes="(max-width: 600px) 100vw, 64px" unoptimized={!isLocalAsset(product.image)} />
         </span>
         <div className="pcr-info">
           <strong>{product.name}</strong>
