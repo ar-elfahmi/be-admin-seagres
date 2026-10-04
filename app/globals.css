@@ -1748,6 +1748,21 @@ a {
   border-radius: var(--radius-pill);
 }
 
+.crumb-row {
+  width: min(840px, 100%);
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.crumb-row a { color: var(--muted); text-decoration: none; }
+.crumb-row a:hover { color: var(--primary); }
+.crumb-row .sep { color: var(--line-strong, #cbd5e1); }
+.crumb-row .cur { color: var(--ink); font-weight: 600; }
+
 .lot-card {
   width: min(840px, 100%);
   margin: 0 auto;

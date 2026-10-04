@@ -77,6 +77,14 @@ export default async function PengepulSubProductPage({ params }: PageProps) {
         </Link>
       </header>
 
+      <nav className="crumb-row" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="sep" aria-hidden="true">›</span>
+        <Link href={`/pengepul/produk/${detail.id}`}>{detail.name}</Link>
+        <span className="sep" aria-hidden="true">›</span>
+        <span className="cur">{sub.fishermanName}</span>
+      </nav>
+
       <article className="lot-card anim">
         <div className="lot-body">
           <div className="lot-head">

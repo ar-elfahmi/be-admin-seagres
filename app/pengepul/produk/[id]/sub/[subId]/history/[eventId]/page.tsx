@@ -74,6 +74,16 @@ export default async function PengepulEventPage({ params }: PageProps) {
         </Link>
       </header>
 
+      <nav className="crumb-row" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="sep" aria-hidden="true">›</span>
+        <Link href={`/pengepul/produk/${detail.id}`}>{detail.name}</Link>
+        <span className="sep" aria-hidden="true">›</span>
+        <Link href={`/pengepul/produk/${detail.id}/sub/${sub.id}`}>{sub.fishermanName}</Link>
+        <span className="sep" aria-hidden="true">›</span>
+        <span className="cur">{event.stage ? HISTORY_STAGE_LABELS[event.stage] : event.kind}</span>
+      </nav>
+
       <article className="lot-card anim">
         <div className="lot-body">
           <div className="lot-head">

@@ -75,6 +75,12 @@ export default async function PengepulProdukPage({ params, searchParams }: PageP
         </Link>
       </header>
 
+      <nav className="crumb-row" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="sep" aria-hidden="true">›</span>
+        <span className="cur">{detail.name}</span>
+      </nav>
+
       <article className="lot-card anim">
         <div className="lot-hero">
           <Image
