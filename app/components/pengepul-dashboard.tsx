@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Archive,
   BadgeCheck,
   Check,
   ChevronRight,
@@ -16,20 +17,21 @@ import {
   Minus,
   Package,
   Plus,
+  RotateCcw,
   Scale,
   Search,
   ShieldCheck,
   ShoppingCart,
-  Star,
   Trash2,
   TrendingUp,
   Truck,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   createProduct,
   deleteProductAction,
+  restoreProductAction,
   logout,
   updateProductQuantity,
 } from "../actions";
@@ -45,6 +47,9 @@ import AddFishermanForm from "./forms/add-fisherman-form";
 import VerifiedPhotoCapture, { type VerifiedDoc } from "./verified-photo-capture";
 import MarketFooter from "./market-footer";
 import PengepulBottomNav from "./pengepul-bottom-nav";
+import { collectorAnalytics } from "../../lib/collector-analytics";
+import { priceDay } from "../../lib/price-periods";
+import { uploadBudgetError } from "../../lib/upload-policy";
 interface PengepulDashboardProps {
   user: PublicUser;
   products: ProductDetail[];
@@ -72,42 +77,35 @@ function formatRelative(iso: string): string {
   return `${d} hari lalu`;
 }
 type TrendCategory = "Semua" | "Bandeng" | "Udang" | "Kerang" | "Olahan";
-const TREND_TICKS = [1, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 31];
-const TREND_LABELS: Record<number, string> = {
-  1: "1 Okt", 6: "6 Okt", 12: "12 Okt", 18: "18 Okt", 24: "24 Okt", 31: "31 Okt",
-};
-const TREND_SERIES: Record<TrendCategory, number[]> = {
-  Semua: [120, 132, 101, 134, 90, 230, 210, 182, 233, 211, 192, 250],
-  Bandeng: [40, 52, 31, 64, 30, 80, 70, 52, 73, 61, 62, 90],
-  Udang: [30, 40, 25, 35, 25, 60, 55, 45, 60, 55, 50, 70],
-  Kerang: [25, 22, 25, 20, 20, 45, 40, 45, 50, 45, 40, 50],
-  Olahan: [25, 18, 20, 15, 15, 45, 45, 40, 50, 50, 40, 40],
-};
-const TOP_PRODUCTS = [
-  { name: "Bandeng segar 3–4 ekor", qty: 142, growth: 18, type: "Bandeng" },
-  { name: "Udang vaname size 50", qty: 96, growth: 12, type: "Udang" },
-  { name: "Kerang hijau bersih", qty: 78, growth: 6, type: "Kerang" },
-  { name: "Olahan bandeng presto", qty: 54, growth: 24, type: "Olahan" },
-  { name: "Udang windu size 40", qty: 41, growth: -3, type: "Udang" },
-];
 
 export function isLocalAsset(src: string): boolean {
   return src.startsWith("/products/") || src.startsWith("/uploads/");
 }
 
 export function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const trigger = document.activeElement as HTMLElement | null;
+    const previous = document.body.style.overflow;
+    dialog?.showModal();
+    document.body.style.overflow = "hidden";
+    return () => { dialog?.close(); document.body.style.overflow = previous; trigger?.focus(); };
+  }, []);
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onMouseDown={(event) => event.stopPropagation()}>
+    <dialog ref={dialogRef} className="collector-dialog" aria-labelledby={titleId} onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => {
+      const box = event.currentTarget.getBoundingClientRect();
+      if (event.target === event.currentTarget && (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom)) onClose();
+    }}>
         <div className="modal-head">
-          <h2 id="modal-title">{title}</h2>
+          <h2 id={titleId}>{title}</h2>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Tutup">
             <X />
           </button>
         </div>
         {children}
-      </section>
-    </div>
+    </dialog>
   );
 }
 
@@ -156,8 +154,9 @@ function newFishermanRow(): FishermanRowState {
   };
 }
 
-function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => void; busy: boolean }) {
+function CreateProductForm({ onSubmit, busy, actorName, defaultLocation }: { onSubmit: (data: FormData) => void; busy: boolean; actorName: string; defaultLocation: string }) {
   const [rows, setRows] = useState<FishermanRowState[]>([newFishermanRow()]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   function updateRow(id: string, patch: Partial<FishermanRowState>) {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -172,6 +171,10 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const photo = data.get("photo");
+    const budgetError = uploadBudgetError(rows.flatMap((row) => row.docs), photo instanceof File ? photo.size : 0);
+    setUploadError(budgetError);
+    if (budgetError) return;
     rows.forEach((row, index) => {
       data.set(`subName[${index}]`, row.name);
       data.set(`fishermanName[${index}]`, row.fishermanName);
@@ -208,8 +211,8 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
     navigator.geolocation.getCurrentPosition(
       (position) => {
         updateRow(rowId, {
-          geoLat: String(position.coords.latitude),
-          geoLng: String(position.coords.longitude),
+          geoLat: position.coords.latitude.toFixed(6),
+          geoLng: position.coords.longitude.toFixed(6),
         });
       },
       () => undefined,
@@ -219,6 +222,7 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
 
   return (
     <form className="form" onSubmit={submit}>
+      {uploadError ? <p className="form-error" role="alert">{uploadError}</p> : null}
       <div className="sell-banner">
         <Truck aria-hidden="true" />
         <p>
@@ -254,7 +258,7 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
       </div>
       <div className="form-grid">
         <label>
-          Lokasi umum<input name="location" placeholder="ex: Ujungpangkah" required />
+          Lokasi umum<input name="location" defaultValue={defaultLocation} placeholder="ex: Ujungpangkah" required />
         </label>
         <label>
           Catatan promo <small>(opsional)</small>
@@ -419,11 +423,12 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
             <MapPin /> Ambil titik lokasi dari browser
           </button>
           <VerifiedPhotoCapture
-            actorName="Pengepul"
-            productLabel={`Nelayan #${index + 1}`}
+            actorName={actorName}
+            productLabel={row.name || row.fishermanName || `Penerimaan ${index + 1}`}
             docs={row.docs}
             onChange={(docs) => updateRow(row.id, { docs })}
-            helperText="Aktifkan GPS lalu ambil foto lewat tombol kamera. Foto otomatis dibakar stempel waktu, lokasi, dan identitas pengepul."
+            onCoords={(coords) => setRows((current) => current.map((item) => item.id === row.id ? { ...item, geoLat: item.geoLat || coords.lat.toFixed(6), geoLng: item.geoLng || coords.lng.toFixed(6) } : item))}
+            helperText="Lokasi pencatatan mengisi koordinat yang masih kosong. Periksa kembali lokasi asal sebelum menyimpan."
           />
           </div>
         ))}
@@ -444,7 +449,7 @@ function CreateProductForm({ onSubmit, busy }: { onSubmit: (data: FormData) => v
   );
 }
 
-function TrendChart({ series }: { series: number[] }) {
+function TrendChart({ series, days }: { series: number[]; days: string[] }) {
   const w = 720;
   const h = 200;
   const padL = 40;
@@ -460,7 +465,7 @@ function TrendChart({ series }: { series: number[] }) {
   const points = series.map((v, i) => {
     const x = padL + i * stepX;
     const y = padT + innerH - (v / yMax) * innerH;
-    return { x, y, value: v, tick: TREND_TICKS[i] };
+    return { x, y, value: v, tick: days[i] };
   });
   const baselineY = padT + innerH;
   const yTicks: number[] = [];
@@ -468,7 +473,7 @@ function TrendChart({ series }: { series: number[] }) {
   const linePoints = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
   const areaPoints = `${padL},${baselineY} ${linePoints} ${(padL + (series.length - 1) * stepX).toFixed(1)},${baselineY}`;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tren penjualan 12 periode terakhir" className="trend-svg">
+    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`Penjualan tercatat tujuh hari terakhir: ${series.map((value, index) => `${days[index]} ${value} kg`).join(", ")}`} className="trend-svg">
       <g className="trend-grid-y">
         {yTicks.map((tk) => {
           const y = padT + innerH - (tk / yMax) * innerH;
@@ -484,9 +489,8 @@ function TrendChart({ series }: { series: number[] }) {
       <polyline points={linePoints} className="trend-line" />
       <g className="trend-axis-x">
         {points.map((p) => {
-          const label = TREND_LABELS[p.tick];
-          if (!label) return null;
-          const isCurrent = p.tick === TREND_TICKS[TREND_TICKS.length - 1];
+          const label = new Date(`${p.tick}T12:00:00+07:00`).toLocaleDateString("id-ID", { day: "numeric", month: "short", timeZone: "Asia/Jakarta" });
+          const isCurrent = p.tick === days[days.length - 1];
           return (
             <text key={`xl-${p.tick}`} x={p.x} y={baselineY + 18} textAnchor="middle" className={isCurrent ? "is-current" : ""}>
               {label}
@@ -507,12 +511,12 @@ function TrendChart({ series }: { series: number[] }) {
 }
 interface ProductCardProps {
   product: ProductDetail;
-  onDeleted: (id: string) => void;
+  actorName: string;
   onSold: (products: ProductDetail[]) => void;
   onReceived: (detail: ProductDetail) => void;
   onNotice: (message: string, isError?: boolean) => void;
 }
-function ProductCard({ product, onDeleted, onSold, onReceived, onNotice }: ProductCardProps) {
+function ProductCard({ product, actorName, onSold, onReceived, onNotice }: ProductCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmStep, setConfirmStep] = useState<0 | 1>(0);
   const [sellOpen, setSellOpen] = useState(false);
@@ -545,19 +549,22 @@ function ProductCard({ product, onDeleted, onSold, onReceived, onNotice }: Produ
     };
   }, [menuOpen]);
 
-  async function handleDelete() {
-    if (confirmStep === 0) {
+  async function handleArchive() {
+    if (!product.deletedAt && confirmStep === 0) {
       setConfirmStep(1);
       return;
     }
     setBusy(true);
     try {
-      const res = await deleteProductAction(product.id);
+      const res = await (product.deletedAt ? restoreProductAction(product.id) : deleteProductAction(product.id));
       if (res?.error) {
-        window.alert(res.error);
+        onNotice(res.error, true);
         return;
       }
-      onDeleted(product.id);
+      if (res.products) onSold(res.products);
+      onNotice(product.deletedAt ? "Produk dipulihkan dan kembali tampil di katalog." : "Produk diarsipkan. Stok, riwayat, dan QR tetap tersimpan.");
+    } catch {
+      onNotice("Status arsip belum dapat disimpan. Periksa koneksi dan coba lagi.", true);
     } finally {
       setBusy(false);
       setMenuOpen(false);
@@ -593,6 +600,8 @@ function ProductCard({ product, onDeleted, onSold, onReceived, onNotice }: Produ
       onNotice(`${qty} kg ${selected?.fishermanName ?? ""} terjual.`);
       setSellOpen(false);
       setAmount("1");
+    } catch {
+      setError("Penjualan belum dapat disimpan. Periksa koneksi dan muat ulang stok sebelum mencoba lagi.");
     } finally {
       setBusy(false);
     }
@@ -610,13 +619,14 @@ function ProductCard({ product, onDeleted, onSold, onReceived, onNotice }: Produ
             {product.type} · {product.size} · {product.location}
           </small>
           <div className="pcr-meta">
+            {product.deletedAt ? <span className="archive-chip"><Archive /> Diarsipkan</span> : null}
             <span className="stock-chip">
               <Scale /> {product.available.toFixed(1)} kg
             </span>
             <span className="price-chip">Rp{money.format(product.price)}/kg</span>
           </div>
         </div>
-        <div className="pcr-menu" ref={menuRef}>
+        {!product.deletedAt ? <div className="pcr-menu" ref={menuRef}>
           <button
             type="button"
             className="icon-button pcr-kebab"
@@ -633,16 +643,16 @@ function ProductCard({ product, onDeleted, onSold, onReceived, onNotice }: Produ
           {menuOpen ? (
             <div className="pcr-menu-pop" role="menu">
               {confirmStep === 0 ? (
-                <button type="button" role="menuitem" className="pcr-menu-danger" onClick={handleDelete}>
-                  <Trash2 /> Hapus produk
+                <button type="button" role="menuitem" className="pcr-menu-archive" onClick={handleArchive}>
+                  <Archive /> Arsipkan produk
                 </button>
               ) : (
                 <>
                   <p className="pcr-menu-warn">
-                    Hapus “{product.name}”? Stok {product.available.toFixed(1)} kg ikut hilang permanen.
+                    Arsipkan “{product.name}”? Produk disembunyikan dari katalog. Stok, riwayat, dan QR tetap tersimpan; bisa dipulihkan.
                   </p>
-                  <button type="button" role="menuitem" className="pcr-menu-danger solid" onClick={handleDelete} disabled={busy}>
-                    <Trash2 /> {busy ? "Menghapus…" : "Ya, hapus permanen"}
+                  <button type="button" role="menuitem" className="pcr-menu-archive solid" onClick={handleArchive} disabled={busy}>
+                    <Archive /> {busy ? "Mengarsipkan…" : "Ya, arsipkan"}
                   </button>
                   <button
                     type="button"
@@ -657,11 +667,13 @@ function ProductCard({ product, onDeleted, onSold, onReceived, onNotice }: Produ
               )}
             </div>
           ) : null}
-        </div>
+        </div> : null}
       </div>
 
       <div className="pcr-actions">
-        <button
+        {product.deletedAt ? <button type="button" className="primary-mini" onClick={handleArchive} disabled={busy} aria-label={`Pulihkan ${product.name}`}>
+          <RotateCcw /> {busy ? "Memulihkan…" : "Pulihkan"}
+        </button> : <><button
           type="button"
           onClick={() => setReceiveOpen(true)}
           className="primary-mini"
@@ -683,7 +695,7 @@ function ProductCard({ product, onDeleted, onSold, onReceived, onNotice }: Produ
           title={product.subProducts.length ? undefined : "Belum ada sumber nelayan"}
         >
           <Minus /> Jual
-        </button>
+        </button></>}
         <Link
           href={`/pengepul/produk/${product.id}`}
           className="ghost"
@@ -757,7 +769,7 @@ function ProductCard({ product, onDeleted, onSold, onReceived, onNotice }: Produ
       ) : null}
       {receiveOpen ? (
         <Modal title={`Terima — ${product.name}`} onClose={() => setReceiveOpen(false)}>
-          <AddFishermanForm productId={product.id} actorName={product.organization} productLabel={`${product.name} · ${product.type} · ${product.size}`} lockedProductName={`${product.name} · ${product.type} · ${product.size}`} onSaved={(detail) => { onReceived(detail); setReceiveOpen(false); }} />
+          <AddFishermanForm productId={product.id} actorName={actorName} productLabel={`${product.name} · ${product.type} · ${product.size}`} lockedProductName={`${product.name} · ${product.type} · ${product.size}`} onSaved={(detail, warning) => { onReceived(detail); setReceiveOpen(false); onNotice(warning || "Penerimaan tersimpan.", Boolean(warning)); }} />
         </Modal>
       ) : null}
     </article>
@@ -766,6 +778,7 @@ function ProductCard({ product, onDeleted, onSold, onReceived, onNotice }: Produ
 
 export default function PengepulDashboard({ user, products, orders, activity }: PengepulDashboardProps) {
   const [list, setList] = useState<ProductDetail[]>(products);
+  const [view, setView] = useState<"active" | "archive">("active");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Semua");
   const [trend, setTrend] = useState<TrendCategory>("Semua");
 
@@ -775,22 +788,26 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
   const [notice, setNotice] = useState<{ message: string; isError?: boolean } | null>(null);
   const router = useRouter();
 
-  const filtered = list.filter((product) => {
+  const active = list.filter((product) => !product.deletedAt);
+  const archived = list.filter((product) => product.deletedAt);
+  const shown = view === "active" ? active : archived;
+  const filtered = shown.filter((product) => {
     if (filter !== "Semua" && product.type !== filter) return false;
     if (query.trim()) {
       const q = query.trim().toLocaleLowerCase("id-ID");
-      return `${product.name} ${product.organization} ${product.location}`.toLocaleLowerCase("id-ID").includes(q);
+      return `${product.name} ${product.organization} ${product.location} ${product.subProducts.map((sub) => sub.fishermanName).join(" ")}`.toLocaleLowerCase("id-ID").includes(q);
     }
     return true;
   });
   const newOrders = orders.filter((order) => order.status === "Baru").length;
   const pendingOrders = orders.filter((order) => order.status === "Baru");
-  const totalStock = list.reduce((sum, product) => sum + product.available, 0);
-  const totalFishermen = list.reduce((sum, product) => sum + product.subProducts.length, 0);
+  const totalStock = active.reduce((sum, product) => sum + product.available, 0);
+  const totalFishermen = active.reduce((sum, product) => sum + product.subProducts.length, 0);
+  const analytics = collectorAnalytics(list, trend, priceDay(new Date())!);
 
   function flash(message: string, isError = false) {
     setNotice({ message, isError });
-    window.setTimeout(() => setNotice(null), 2800);
+    if (!isError) window.setTimeout(() => setNotice((current) => current?.message === message ? null : current), 4500);
   }
 
   async function submitCreate(formData: FormData) {
@@ -801,7 +818,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
         flash(res.error, true);
       } else {
         if (res.products) setList(res.products);
-      flash(res.product ? `${res.product.name} tersimpan permanen dan tampil di katalog.` : "Produk berhasil ditambahkan dan tampil di katalog.");
+        flash(res.warning || (res.product ? `${res.product.name} tersimpan dan tampil di katalog.` : "Produk berhasil ditambahkan dan tampil di katalog."), Boolean(res.warning));
         setModal(null);
       }
     } catch {
@@ -813,9 +830,9 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
 
   async function doLogout() {
     setBusy(true);
-    await logout();
-    setBusy(false);
-    router.push("/");
+    try { await logout(); router.push("/"); router.refresh(); }
+    catch { flash("Belum dapat keluar. Periksa koneksi lalu coba lagi.", true); }
+    finally { setBusy(false); }
   }
 
   function scrollToTop() {
@@ -863,20 +880,20 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
           <div className="stat-card">
             <Package aria-hidden="true" />
             <span className="stat-label">Produk aktif</span>
-            <strong>{list.length}</strong>
-            <small>{filtered.length === list.length ? "Semua komoditas" : `Tampil ${filtered.length}`}</small>
+            <strong>{active.length}</strong>
+            <small>Produk aktif · {archived.length} di arsip</small>
           </div>
           <div className="stat-card">
             <Scale aria-hidden="true" />
             <span className="stat-label">Stok agregat</span>
             <strong>{totalStock.toFixed(1)}<small> kg</small></strong>
-            <small>{totalFishermen} sumber nelayan</small>
+            <small>{totalFishermen} penerimaan nelayan</small>
           </div>
           <div className="stat-card">
             <ShoppingCart aria-hidden="true" />
-            <span className="stat-label">Pesanan baru</span>
+            <span className="stat-label">Pesanan lot lama</span>
             <strong>{newOrders}</strong>
-            <small>Butuh konfirmasi</small>
+            <small>Belum terhubung ke produk agregasi</small>
           </div>
           <div className="stat-card">
             <ShieldCheck aria-hidden="true" />
@@ -890,7 +907,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
           <article className="dash-card trend-card" id="penjualan-chart">
             <header className="dash-card-head">
               <h3><TrendingUp aria-hidden="true" /> Tren penjualan</h3>
-              <span className="dash-card-sub">12 periode terakhir · mock</span>
+              <span className="dash-card-sub">7 hari terakhir · penjualan tercatat</span>
             </header>
             <div className="trend-chips" role="tablist" aria-label="Pilih kategori tren">
               {(["Semua", "Bandeng", "Udang", "Kerang", "Olahan"] as const).map((item) => (
@@ -907,36 +924,35 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
               ))}
             </div>
             <div className="trend-chart-wrap">
-              <TrendChart series={TREND_SERIES[trend]} />
+              <TrendChart series={analytics.series} days={analytics.days} />
             </div>
             <footer className="trend-foot">
-              <span>Total {money.format(TREND_SERIES[trend].reduce((a, b) => a + b, 0))} kg</span>
-              <span className="trend-delta">+12% vs periode lalu</span>
+              <span>Total {money.format(analytics.series.reduce((a, b) => a + b, 0))} kg</span>
+              <span>Data dari riwayat penjualan</span>
             </footer>
           </article>
 
           <article className="dash-card top-card">
             <header className="dash-card-head">
-              <h3><Star aria-hidden="true" /> Produk terlaris bulan ini</h3>
-              <span className="dash-card-sub">Mock · 5 teratas</span>
+              <h3><Package aria-hidden="true" /> Produk terjual bulan ini</h3>
+              <span className="dash-card-sub">Maksimal 5 produk</span>
             </header>
             <ul className="top-list">
-              {TOP_PRODUCTS.map((item) => (
-                <li key={item.name}>
+              {analytics.top.map((item) => (
+                <li key={item.id}>
                   <span className="top-name">{item.name}</span>
                   <span className="top-qty">{item.qty} kg</span>
-                  <span className={item.growth >= 0 ? "top-growth up" : "top-growth down"}>
-                    {item.growth >= 0 ? "+" : ""}{item.growth}%
-                  </span>
+                  <span>{item.type}</span>
                 </li>
               ))}
+              {!analytics.top.length ? <li>Belum ada penjualan tercatat untuk kategori ini bulan ini.</li> : null}
             </ul>
           </article>
 
           <article className="dash-card activity-card">
             <header className="dash-card-head">
               <h3><Clock aria-hidden="true" /> Aktivitas terbaru</h3>
-              <span className="dash-card-sub">Event & pesanan · real</span>
+              <span className="dash-card-sub">Riwayat produk pengepulanmu</span>
             </header>
             <ul className="activity-list">
               {activity.length ? (
@@ -991,6 +1007,11 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
         </section>
 
 
+        <div className="archive-tabs" role="group" aria-label="Status produk">
+          <button type="button" aria-pressed={view === "active"} onClick={() => setView("active")}><Package /> Aktif <span>{active.length}</span></button>
+          <button type="button" aria-pressed={view === "archive"} onClick={() => setView("archive")}><Archive /> Arsip <span>{archived.length}</span></button>
+        </div>
+        {view === "archive" ? <p className="archive-note">Arsip tidak tampil di katalog. Riwayat dan QR tetap dapat dibuka. Pulihkan produk untuk menerima stok atau menjual kembali.</p> : null}
         <section className="action-bar">
           <div className="filter-chips" role="tablist" aria-label="Filter komoditas">
             {FILTERS.map((item) => (
@@ -1014,18 +1035,18 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
         <section className="product-grid" id="produk-grid">
           {filtered.length ? (
             filtered.map((product) => (
-              <ProductCard key={product.id} product={product} onDeleted={(id) => setList((cur) => cur.filter((p) => p.id !== id))} onSold={(products) => setList(products)} onReceived={(detail) => setList((cur) => cur.map((p) => (p.id === detail.id ? detail : p)))} onNotice={flash} />
+              <ProductCard key={product.id} product={product} actorName={user.name} onSold={setList} onReceived={(detail) => setList((cur) => cur.map((p) => (p.id === detail.id ? detail : p)))} onNotice={flash} />
             ))
           ) : (
             <div className="empty-state large">
               <Package />
-              <h3>{list.length ? "Tidak ada produk cocok" : "Belum ada produk"}</h3>
+              <h3>{shown.length ? "Tidak ada produk cocok" : view === "archive" ? "Arsip masih kosong" : "Belum ada produk aktif"}</h3>
               <p>
-                {list.length
+                {shown.length
                   ? "Coba ubah filter atau kata kunci pencarian."
-                  : "Tambahkan produk agregasi pertama untuk pengepulanmu."}
+                  : view === "archive" ? "Produk yang diarsipkan akan muncul di sini dan bisa dipulihkan." : "Tambahkan produk baru atau pulihkan produk dari Arsip."}
               </p>
-              {!list.length ? (
+              {!shown.length && view === "active" ? (
                 <button className="primary-button" type="button" onClick={() => setModal("create")}>
                   <Plus /> Tambah produk
                 </button>
@@ -1063,19 +1084,20 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
       {notice ? (
         <div className={notice.isError ? "toast toast-error" : "toast"} role="status">
           <Check /> {notice.message}
+          <button type="button" className="icon-button" aria-label="Tutup pemberitahuan" onClick={() => setNotice(null)}><X /></button>
         </div>
       ) : null}
 
       {modal === "create" ? (
         <Modal title="Catat produk & sumber nelayan" onClose={() => setModal(null)}>
-          <CreateProductForm onSubmit={submitCreate} busy={busy} />
+          <CreateProductForm onSubmit={submitCreate} busy={busy} actorName={user.name} defaultLocation={user.location} />
         </Modal>
       ) : null}
 
       {modal === "orders" ? (
         <Modal title={`Pesanan masuk (${newOrders})`} onClose={() => setModal(null)}>
           <div className="orders-panel">
-            <p className="hint">Penjualan dari katalog dilakukan via pre-order terhadap lot legacy.</p>
+            <p className="hint">Ini pesanan lot dari sistem lama, bukan preorder produk agregasi. Preorder produk baru masih dalam pengembangan.</p>
             {orders.length ? (
               <ul className="order-list">
                 {orders.map((order) => (
@@ -1110,7 +1132,7 @@ export default function PengepulDashboard({ user, products, orders, activity }: 
               <div><dt>Dasar verifikasi</dt><dd>{user.verificationBasis}</dd></div>
               <div><dt>Nomor kelompok</dt><dd>{user.groupNumber}</dd></div>
             </dl>
-            <Link className="link-button" href="/">Lihat katalog publik</Link>
+            <Link className="link-button" href="/dashboard">Kembali ke dashboard produk</Link>
             <button type="button" className="logout-button" onClick={doLogout} disabled={busy}>
               <LogOut /> {busy ? "Keluar…" : "Keluar dari akun"}
             </button>

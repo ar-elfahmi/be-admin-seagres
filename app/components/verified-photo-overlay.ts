@@ -22,14 +22,7 @@ const TILE_SIZE = 96;
 const PADDING = 16;
 
 function formatTimestamp(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const dd = pad(d.getDate());
-  const mm = pad(d.getMonth() + 1);
-  const yyyy = d.getFullYear();
-  const hh = pad(d.getHours());
-  const mi = pad(d.getMinutes());
-  const ss = pad(d.getSeconds());
-  return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss} WIB`;
+  return `${new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(d)} WIB`;
 }
 
 function formatCoord(value: number, positive: string, negative: string): string {
@@ -59,7 +52,7 @@ async function loadImage(file: File): Promise<HTMLImageElement> {
     });
     return img;
   } finally {
-    // Image keeps the object URL alive via src; release after decode.
+    URL.revokeObjectURL(url);
   }
 }
 
@@ -107,7 +100,7 @@ function drawMiniMap(
   ctx.stroke();
 
   // Marker pin
-  ctx.fillStyle = "#f97316";
+  ctx.fillStyle = "#60a5fa";
   ctx.beginPath();
   ctx.arc(cx, cy, 5, 0, Math.PI * 2);
   ctx.fill();
@@ -122,12 +115,13 @@ export async function renderOverlay(
 ): Promise<OverlayResult> {
   const img = await loadImage(file);
   const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
+  const scale = Math.min(1, 1920 / Math.max(img.naturalWidth, img.naturalHeight));
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Browser tidak mendukung canvas 2D.");
 
-  context.drawImage(img, 0, 0);
+  context.drawImage(img, 0, 0, canvas.width, canvas.height);
 
   const w = canvas.width;
   const h = canvas.height;

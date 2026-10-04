@@ -1790,22 +1790,43 @@ a {
 
 .lot-topbar {
   width: min(840px, 100%);
-  margin: 0 auto 20px;
+  margin: 0 auto 22px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+}
+
+.lot-topbar .brand {
+  flex: 0 0 auto;
+  text-decoration: none;
 }
 
 .lot-topbar-note {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 12px;
+  gap: 8px;
+  min-height: 40px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--primary);
   background: var(--primary-soft);
-  padding: 5px 12px;
+  padding: 8px 14px;
   border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.lot-topbar-note svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 480px) {
+  .lot-page { padding: 18px 14px 44px; }
+  .lot-topbar { margin-bottom: 18px; gap: 8px; }
+  .lot-topbar-note { min-height: 36px; gap: 6px; padding: 7px 9px; font-size: 11px; }
+  .lot-topbar-note svg { width: 16px; height: 16px; }
 }
 
 .crumb-row {
@@ -1820,6 +1841,21 @@ a {
 }
 .crumb-row a { color: var(--muted); text-decoration: none; }
 .crumb-row a:hover { color: var(--primary); }
+.crumb-row .trace-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  color: var(--primary);
+  font-weight: 700;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.crumb-row .trace-back-link:hover { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+.crumb-row .trace-back-link svg { width: 15px; height: 15px; }
+.crumb-row .trace-back-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .crumb-row .sep { color: var(--line-strong, #cbd5e1); }
 .crumb-row .cur { color: var(--ink); font-weight: 600; }
 
@@ -2624,6 +2660,58 @@ a {
 .trace-card-qr img { width: 140px; height: 140px; display: block; }
 .trace-card-name { font-weight: 700; color: var(--ink); font-size: 13.5px; text-align: center; }
 .trace-card-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-size: 11px; }
+
+@page traceLabel {
+  size: 80mm 92mm;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    width: 80mm !important;
+    height: 92mm !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: #fff !important;
+  }
+
+  body * { visibility: hidden !important; }
+
+  .trace-card,
+  .trace-card * { visibility: visible !important; }
+
+  .trace-card {
+    page: traceLabel;
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    width: 80mm !important;
+    height: 92mm !important;
+    max-width: none !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 5mm !important;
+    gap: 2.5mm !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    color: #111 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    page-break-inside: avoid;
+  }
+
+  .trace-card-head { font-size: 10pt !important; }
+  .trace-card-qr img { width: 44mm !important; height: 44mm !important; }
+  .trace-card-name { font-size: 12pt !important; color: #111 !important; }
+  .trace-card-code { font-size: 9pt !important; color: #444 !important; }
+  .trace-card button,
+  .trace-card > a { display: none !important; }
+}
 
 /* Form nelayan — repeatable rows */
 .fishermen-block {

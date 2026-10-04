@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowRight, Eye, EyeOff, QrCode, ShieldCheck, ShoppingCart } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, QrCode, ShieldCheck, Package } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { login, register } from "../actions";
@@ -40,6 +40,7 @@ export default function AuthScreen() {
 
   async function registerForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (registerStep === 1) { setRegisterStep(2); return; }
     const data = new FormData(event.currentTarget);
     setBusy(true);
     setError("");
@@ -83,9 +84,9 @@ export default function AuthScreen() {
           </div>
           <h2>Pasar hasil pesisir Gresik, dimulai dari sini.</h2>
           <ul className="auth-points">
-            <li><ShieldCheck aria-hidden="true" /> Penjual diverifikasi penyuluh perikanan</li>
-            <li><QrCode aria-hidden="true" /> Tiap lot punya kartu QR penelusuran</li>
-            <li><ShoppingCart aria-hidden="true" /> Pre-order direkap otomatis per kelompok</li>
+            <li><ShieldCheck aria-hidden="true" /> Profil pengepul dan sumber nelayan tercatat</li>
+            <li><QrCode aria-hidden="true" /> QR keterlacakan untuk setiap penerimaan</li>
+            <li><Package aria-hidden="true" /> Harga per grade dan stok per sumber</li>
           </ul>
         </div>
       </section>
@@ -101,7 +102,7 @@ export default function AuthScreen() {
             <form className="form" onSubmit={loginForm}>
               <div>
                 <h1 className="auth-title">Masuk</h1>
-                <p className="auth-sub">Belanja lot segar atau catat hasil panen kelompokmu.</p>
+                <p className="auth-sub">Telusuri hasil laut atau kelola produk pengepulanmu.</p>
               </div>
               {error ? <p className="form-error">{error}</p> : null}
               <label>
@@ -122,7 +123,7 @@ export default function AuthScreen() {
               </button>
               <div className="demo-row">
                 <span className="demo-tag">DEMO</span>
-                <p>Pak Rahmat · KUB Mina Jaya · penjual</p>
+                <p>Pak Rahmat · KUB Mina Jaya · pengepul</p>
                 <button type="button" disabled={busy} onClick={() => submitLogin("rahmat@seagres.id", "demo1234")}>Masuk</button>
               </div>
               <div className="demo-row demo-buyer">
@@ -138,7 +139,7 @@ export default function AuthScreen() {
             <form className="form" onSubmit={registerForm}>
               <div>
                 <h1 className="auth-title">Daftar</h1>
-                <p className="auth-sub">Buat akun penjual atau pembeli untuk mengakses SeaGres sesuai kebutuhanmu.</p>
+                <p className="auth-sub">Buat akun pengepul atau pembeli untuk mengakses SeaGres sesuai kebutuhanmu.</p>
               </div>
               {error ? <p className="form-error">{error}</p> : null}
               <div className={`register-step ${registerStep === 1 ? "active" : "inactive"}`}>
@@ -197,14 +198,14 @@ export default function AuthScreen() {
                   </label>
                   <label>
                     Kecamatan
-                    <input name="location" placeholder="ex: Manyar" required />
+                    <input name="location" placeholder="ex: Manyar" required={registerStep === 2} />
                   </label>
                 </div>
                 <label>
                   {accountType === "customer" ? "Nama usaha / tempat usaha" : "Kelompok / koperasi / usaha"}
-                  <input name="organization" placeholder={accountType === "customer" ? "ex: Resto Pesisir Gresik" : "ex: KUB Mina Jaya"} required />
+                  <input name="organization" placeholder={accountType === "customer" ? "ex: Resto Pesisir Gresik" : "ex: KUB Mina Jaya"} required={registerStep === 2} />
                 </label>
-                <p className="auth-note">{accountType === "customer" ? "Profil pembeli dipakai untuk mengajukan pre-order dan menerima konfirmasi pengambilan." : "Dokumen pendukung (SK kelompok, KTP, atau izin usaha) ditindaklanjuti pendamping setelah pendaftaran."}</p>
+                <p className="auth-note">{accountType === "customer" ? "Akun pembeli dapat melihat katalog, harga per sumber, dan keterlacakan. Preorder masih dalam pengembangan." : "Akun pengepul dapat mencatat produk dan penerimaan. Pendaftaran tidak otomatis memberikan status terverifikasi; alur verifikator masih dalam pengembangan."}</p>
                 <div className="register-actions">
                   <button className="back-button" type="button" onClick={() => setRegisterStep(1)}>Kembali</button>
                   <button className="primary-button form-submit" type="submit" disabled={busy}>

@@ -85,7 +85,7 @@ export type ReportRow = {
   created_at: string;
 };
 
-export type PriceRow = { name: string; price: string | number; source: string; image: string };
+export type PriceRow = { name: string; price: string | number; source: string; image: string; reported_at?: string | null };
 
 export type ProductRow = {
   id: string;
@@ -101,6 +101,7 @@ export type ProductRow = {
   location: string;
   barcode: string;
   created_at: string;
+  deleted_at?: string | null;
 };
 
 export type SubProductRow = {
@@ -248,7 +249,7 @@ export function toReport(row: ReportRow): IssueReport {
 }
 
 export function toPrice(row: PriceRow): Price {
-  return { name: row.name, price: num(row.price), source: row.source, image: row.image };
+  return { name: row.name, price: num(row.price), source: row.source, image: row.image, reportedAt: row.reported_at ?? null };
 }
 
 export function toPublicUser(user: User | null): PublicUser | null {
@@ -271,7 +272,8 @@ export function toProduct(row: ProductRow): Product {
     organization: row.organization,
     location: row.location,
     barcode: row.barcode,
-    createdAt: row.created_at,
+      createdAt: row.created_at,
+      deletedAt: row.deleted_at ?? null,
   };
 }
 

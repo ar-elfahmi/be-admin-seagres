@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 const money = new Intl.NumberFormat("id-ID");
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(iso).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" });
 }
 
 export default async function PengepulSubProductPage({ params }: PageProps) {
@@ -91,7 +91,7 @@ export default async function PengepulSubProductPage({ params }: PageProps) {
           <div className="lot-head">
             <div>
               <span className="verified">
-                <BadgeCheck aria-hidden="true" /> Sumber terverifikasi
+                <BadgeCheck aria-hidden="true" /> Sumber tercatat
               </span>
               <h1>
                 <UserRound aria-hidden="true" /> {sub.fishermanName}
@@ -209,7 +209,7 @@ export default async function PengepulSubProductPage({ params }: PageProps) {
 
           <section>
             <h2 className="lot-steps-title">Catat event baru</h2>
-            <AddEventForm productId={detail.id} subProductId={sub.id} />
+            {detail.deletedAt ? <p className="archive-note">Produk diarsipkan. Riwayat hanya dapat dibaca. <Link href="/dashboard">Pulihkan di dashboard</Link> untuk mencatat proses baru.</p> : <AddEventForm productId={detail.id} subProductId={sub.id} actorName={user.name} productLabel={`${detail.name} — ${sub.fishermanName}`} />}
           </section>
         </div>
       </article>

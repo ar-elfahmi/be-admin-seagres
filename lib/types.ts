@@ -24,7 +24,11 @@ export interface Price {
   price: number;
   source: string;
   image: string;
+  reportedAt?: string | null;
 }
+
+/** Only card fields cross the buyer's client boundary, never full trace records. */
+export type CatalogProduct = Product & { available: number; minPrice: number | null; maxPrice: number | null };
 
 export interface LotQuality {
   cleanHandling: boolean;
@@ -101,6 +105,8 @@ export interface Product {
   location: string;
   barcode: string;
   createdAt: string;
+  /** Optional while the non-destructive archive migration is being installed. */
+  deletedAt?: string | null;
 }
 export type ProductGrade = "A" | "B" | "C" | "D";
 

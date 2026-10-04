@@ -1,0 +1,287 @@
+@reference "./globals.css";
+
+/* Buyer-only Tailwind components; collector screens retain their existing styles. */
+.sg-app { @apply min-h-screen bg-[#f7f9fc] text-slate-800; }
+.sg-app .sg-header { @apply sticky top-0 z-40 border-b border-slate-200 bg-white; }
+.sg-app .sg-header-inner { @apply mx-auto flex max-w-[1240px] items-center gap-7 px-6 py-4; }
+.sg-app .sg-brand { @apply inline-flex shrink-0 items-center gap-2.5; }
+.sg-app .sg-brand > strong { @apply text-[23px] font-extrabold tracking-tight text-[#1e5aa8]; }
+.sg-app .sg-desktop-nav { @apply flex items-center gap-5; }
+.sg-app .sg-desktop-nav a { @apply flex min-h-11 items-center whitespace-nowrap text-[13px] font-semibold text-slate-600; }
+.sg-app .sg-desktop-nav a[aria-current] { @apply text-[#1e5aa8]; }
+.sg-app .sg-search { @apply flex min-w-0 max-w-[440px] flex-1 items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 pl-3.5; }
+.sg-app .sg-search > svg { @apply shrink-0 text-slate-500; }
+.sg-app .sg-search input { @apply h-11 min-w-0 w-full border-0 bg-transparent text-[13px]; }
+.sg-app .sg-search button { @apply grid size-11 shrink-0 place-items-center text-[#1e5aa8]; }
+.sg-app .sg-header-spacer { @apply flex-1; }
+.sg-app .sg-account { @apply ml-auto flex min-w-0 items-center gap-2.5; }
+.sg-app .sg-account > span { @apply grid size-10 shrink-0 place-items-center rounded-full bg-[#e0f2fe] text-xs font-extrabold text-[#1e5aa8]; }
+.sg-app .sg-account div { @apply grid max-w-[140px] gap-0.5; }
+.sg-app .sg-account strong { @apply truncate text-xs; }
+.sg-app .sg-account small { @apply text-[11px] text-slate-500; }
+.sg-app .sg-mobile-nav { @apply hidden; }
+.sg-app .sg-market, .sg-app .sg-workspace { @apply mx-auto max-w-[1240px] px-6 pt-7; animation: sgSurfaceEnter .3s ease-out; }
+.sg-app .sg-workspace { @apply grid gap-6; }
+.sg-app .sg-primary, .sg-app .sg-secondary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-5 py-3 text-[13px] font-bold transition-colors; }
+.sg-app .sg-primary { @apply bg-[#1e5aa8] text-white; }
+.sg-app .sg-primary:hover:not(:disabled) { @apply bg-[#174a8c]; }
+.sg-app .sg-secondary { @apply border border-[#cbd8e7] bg-white text-[#1e5aa8]; }
+.sg-app .sg-secondary:hover:not(:disabled) { @apply bg-[#e0f2fe]; }
+.sg-app .sg-primary:disabled, .sg-app .sg-secondary:disabled { @apply cursor-not-allowed opacity-50; }
+.sg-app .sg-text-button { @apply inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-[#1e5aa8]; }
+.sg-app .sg-icon-button { @apply grid size-11 shrink-0 place-items-center rounded-md text-slate-600; }
+.sg-app .sg-icon-button:hover:not(:disabled) { @apply bg-slate-100; }
+.sg-app .sg-icon-button:disabled { @apply cursor-not-allowed opacity-35; }
+.sg-app .sg-muted { @apply text-xs leading-7 text-slate-500; }
+.sg-app .sg-section-heading { @apply mb-5 flex items-center justify-between gap-4; }
+.sg-app .sg-section-heading h2 { @apply text-lg font-bold tracking-tight; }
+.sg-app .sg-section-heading p { @apply mt-1 text-xs text-slate-500; }
+.sg-app .sg-section-heading > svg { @apply shrink-0 text-[#1e5aa8]; }
+.sg-app .sg-page-heading { @apply flex flex-wrap items-center justify-between gap-5; }
+.sg-app .sg-page-heading h1 { @apply text-3xl font-extrabold tracking-tight; }
+.sg-app .sg-page-heading h2 { @apply text-[26px] font-extrabold tracking-tight; }
+.sg-app .sg-page-heading p { @apply mt-2 text-[13px] leading-7 text-slate-500; }
+.sg-app .price-hero { @apply grid grid-cols-[1.1fr_1fr] overflow-hidden rounded-2xl border border-slate-200 bg-white; scroll-margin-top: 100px; }
+.sg-app .price-hero-story { @apply relative min-h-[410px] bg-[#1e5aa8]; }
+.sg-app .price-hero-story > img { @apply object-cover object-[65%_40%]; }
+.sg-app .price-hero-shade { @apply absolute inset-0; background: linear-gradient(90deg, #0e2f55db, #0e2f552e); }
+.sg-app .price-hero-copy { @apply relative z-10 flex h-full max-w-[460px] flex-col items-start justify-center p-9 text-white; }
+.sg-app .hero-location { @apply mb-6 flex items-center gap-2 text-xs text-[#e0f2fe]; }
+.sg-app .price-hero-copy h1 { @apply text-[clamp(27px,3vw,37px)] leading-tight font-extrabold tracking-tight; }
+.sg-app .price-hero-copy p { @apply mt-4 max-w-[330px] text-[13px] leading-7 text-blue-50; }
+.sg-app .sg-primary.hero-browse { @apply mt-6 bg-white px-6 text-[#1e5aa8]; }
+.sg-app .sg-primary.hero-browse:hover:not(:disabled) { @apply bg-[#e0f2fe]; }
+.sg-app .price-hero-board { @apply flex flex-col justify-center p-6; }
+.sg-app .price-hero-board .sg-section-heading { @apply mb-0; }
+.sg-app .price-hero-board h2 { @apply text-[23px]; }
+.sg-app .price-date-filter { @apply mt-4 rounded-xl border border-[#dbe8f8] bg-[#f2f7fd] px-3 pt-3; }
+.sg-app .price-date-filter > label { @apply flex items-center gap-2 text-xs font-semibold text-slate-600; }
+.sg-app .price-date-controls { @apply mt-2 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-1; }
+.sg-app .price-date-controls input { @apply min-h-11 min-w-0 w-full rounded-lg border border-[#cbd8e7] bg-white px-2 py-2 text-sm text-[#1e5aa8]; }
+.sg-app .price-date-actions { @apply flex justify-between gap-3; }
+.sg-app .price-date-actions [aria-pressed="true"] { @apply underline underline-offset-4; }
+.sg-app .hero-prices { @apply grid; }
+.sg-app .price-results-label { @apply mt-4 text-[11px] text-slate-500; }
+.sg-app .price-information { @apply m-0 list-none p-0; }
+.sg-app .hero-price-row { @apply flex w-full items-center gap-3 border-b border-slate-100 py-3 text-left; }
+.sg-app .hero-price-image { @apply relative size-11 shrink-0 overflow-hidden rounded-lg; }
+.sg-app .hero-price-image img { @apply object-cover; }
+.sg-app .hero-price-row > span:nth-child(2) { @apply grid min-w-0 flex-1 gap-0.5; }
+.sg-app .hero-price-row strong { @apply text-sm; }
+.sg-app .hero-price-row small { @apply text-[11px] leading-normal text-slate-500; }
+.sg-app .hero-price-row > b { @apply whitespace-nowrap text-[17px] tracking-tight text-[#1e5aa8] tabular-nums; }
+.sg-app .hero-price-row > b small { @apply ml-1; }
+.sg-app .hero-price-note { @apply mt-4 text-[11px] leading-6 text-slate-500; }
+.sg-app .price-no-data { @apply grid min-h-[190px] content-center justify-items-start gap-2 py-7 text-[13px] leading-7 text-slate-500; }
+.sg-app .price-no-data svg { @apply text-[#1e5aa8]; }
+.sg-app .price-no-data strong { @apply text-slate-700; }
+.sg-app .market-benefits { @apply mb-8 flex items-center justify-center gap-12 border-b border-slate-200 py-6; }
+.sg-app .market-benefits > span { @apply flex items-center gap-2 text-xs text-slate-600; }
+.sg-app .market-benefits svg { @apply shrink-0 text-[#1e5aa8]; }
+.sg-app .sg-catalog { scroll-margin-top: 100px; }
+.sg-app .catalog-toolbar { @apply mt-6 flex items-center justify-between gap-4 border-b border-slate-200 pb-4; }
+.sg-app .sg-categories { @apply flex flex-wrap gap-2; }
+.sg-app .sg-categories button { @apply flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600; }
+.sg-app .sg-categories button.is-selected { @apply border-[#1e5aa8] bg-[#e0f2fe] text-[#1e5aa8]; }
+.sg-app .sg-sort { @apply flex shrink-0 items-center gap-2.5 text-xs text-slate-500; }
+.sg-app .sg-sort select { @apply min-h-11 rounded-lg border border-slate-200 bg-white p-2 text-slate-700; }
+.sg-app .catalog-context { @apply flex min-h-[50px] items-center justify-between gap-3 text-xs text-slate-500; }
+.sg-app .sg-product-grid { @apply grid grid-cols-4 gap-5; }
+.sg-app .sg-product { @apply block min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white transition-[border-color,transform]; }
+.sg-app .sg-product:hover { @apply -translate-y-0.5 border-[#93c5fd]; }
+.sg-app .sg-product-photo { @apply relative aspect-[1.2] overflow-hidden bg-slate-100; }
+.sg-app .sg-product-photo > img { @apply object-cover; }
+.sg-app .product-discount, .sg-app .product-availability { @apply absolute top-3 left-3 rounded-md bg-white px-2 py-1 text-[11px] font-bold text-[#1e5aa8]; }
+.sg-app .product-availability { @apply bg-slate-700 text-white; }
+.sg-app .sg-product-info { @apply p-4; }
+.sg-app .sg-product-info h3 { @apply text-sm leading-6 font-bold tracking-tight; }
+.sg-app .sg-product-seller { @apply mt-1 truncate text-[11px] text-slate-500; }
+.sg-app .sg-product-price { @apply mt-3 text-lg font-extrabold tracking-tight tabular-nums; }
+.sg-app .sg-product-price small { @apply ml-1 text-[11px] font-normal text-slate-500; }
+.sg-app .buyer-price-prefix { @apply text-[11px] font-medium; }
+.sg-app .sg-product-info > s { @apply text-[11px] text-slate-500; }
+.sg-app .sg-product-location { @apply mt-3 flex items-center gap-1 text-[11px] text-slate-500; }
+.sg-app .sg-product-bottom { @apply mt-3 flex flex-wrap items-center justify-between gap-1 border-t border-slate-100 pt-3 text-[11px]; }
+.sg-app .sg-product-bottom > span { @apply flex items-center gap-1 text-[#1e5aa8]; }
+.sg-app .sg-product-bottom b { @apply whitespace-nowrap font-medium text-slate-600; }
+.sg-app .sg-load-more { @apply mx-auto my-7 flex flex-wrap; }
+.sg-app .sg-load-more small { @apply font-normal text-slate-500; }
+.sg-app .catalog-end { @apply mt-6 text-center text-xs text-slate-500; }
+.sg-app .market-support { @apply mt-6 flex flex-wrap items-center justify-center gap-x-4 text-xs text-slate-500; }
+.sg-app .sg-footer { @apply mt-11 grid grid-cols-[1fr_1.2fr_.65fr] gap-12 border-t border-slate-200 pt-9 pb-11; }
+.sg-app .sg-footer h2 { @apply mb-2.5 text-sm font-bold; }
+.sg-app .sg-footer p { @apply mt-2.5 max-w-[400px] text-xs leading-6 text-slate-500; }
+.sg-app .sg-footer small { @apply mt-3 block text-[11px] leading-6 text-slate-500; }
+.sg-app .sg-footer nav { @apply flex flex-col gap-2 pt-1; }
+.sg-app .sg-footer nav a { @apply flex min-h-11 items-center text-xs text-slate-600; }
+.sg-app .sg-footer a:hover { @apply text-[#1e5aa8]; }
+.sg-app .sg-panel { @apply min-w-0 rounded-xl border border-slate-200 bg-white p-6; }
+.sg-app .sg-panel > h2 { @apply mb-4 flex items-center gap-2 text-lg font-bold tracking-tight; }
+.sg-app .sg-panel h2 svg { @apply shrink-0 text-[#1e5aa8]; }
+.sg-app .sg-form { @apply grid gap-4; }
+.sg-app .sg-form > label { @apply grid gap-2 text-xs font-semibold; }
+.sg-app .sg-form input:not([type="checkbox"]), .sg-app .sg-form textarea, .sg-app .sg-form select { @apply min-h-11 min-w-0 w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm font-normal; }
+.sg-app .sg-form textarea { @apply min-h-[96px] resize-y leading-7; }
+.sg-app .sg-notice { @apply rounded-lg border border-blue-100 bg-blue-50 p-4 text-xs leading-7 text-[#345777]; }
+.sg-app .sg-empty { @apply rounded-xl border border-slate-200 bg-white px-6 py-14 text-center; }
+.sg-app .sg-empty > svg { @apply mx-auto mb-4 text-[#1e5aa8]; }
+.sg-app .sg-empty h2, .sg-app .sg-empty h3 { @apply text-xl font-bold; }
+.sg-app .sg-empty p { @apply mt-3 mb-5 text-[13px] text-slate-500; }
+.sg-app .sg-dialog { @apply fixed m-auto w-[calc(100%-32px)] max-w-[680px] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl; max-height: 85dvh; animation: sgSurfaceEnter .2s ease-out; }
+.sg-app .sg-dialog::backdrop { background: #17283c88; }
+.sg-app .sg-dialog-head { @apply sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4; }
+.sg-app .sg-dialog-head h2 { @apply text-lg font-bold; }
+.sg-app .sg-dialog-body { @apply p-6; }
+.sg-app .sg-status { @apply inline-flex items-center whitespace-nowrap rounded-md bg-[#e0f2fe] px-2 py-1.5 text-[11px] font-bold text-[#1e5aa8]; }
+.sg-app .sg-back { @apply flex min-h-11 items-center gap-2 text-xs text-[#1e5aa8]; }
+.sg-app .profile-grid { @apply grid grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)] items-start gap-6; }
+.sg-app .profile-monogram { @apply mb-4 grid size-16 place-items-center rounded-full bg-[#e0f2fe] text-2xl font-extrabold text-[#1e5aa8]; }
+.sg-app .account-profile > p { @apply text-xs text-slate-500; }
+.sg-app .account-profile dl { @apply my-6; }
+.sg-app .account-profile dl > div { @apply flex justify-between gap-4 border-b border-slate-200 py-4 text-xs; }
+.sg-app .account-profile dt { @apply shrink-0 text-slate-500; }
+.sg-app .account-profile dd { @apply text-right [overflow-wrap:anywhere]; }
+.sg-app .verification-profile > p { @apply mt-4 text-xs leading-7 text-slate-500; }
+.sg-app .verification-profile .sg-notice { @apply mt-6; }
+.sg-app .buyer-profile-links { @apply mt-5 grid gap-2; }
+.sg-app .buyer-profile-links a { @apply flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 p-3.5 text-[#1e5aa8]; }
+.sg-app .buyer-profile-links a:hover { @apply bg-[#e0f2fe]; }
+.sg-app .buyer-product-detail { @apply grid grid-cols-[1.1fr_1fr] items-stretch gap-6; }
+.sg-app .buyer-detail-photo { @apply relative min-h-[420px] overflow-hidden rounded-xl bg-[#e0f2fe]; }
+.sg-app .buyer-detail-photo img { @apply object-cover; }
+.sg-app .buyer-detail-copy { @apply flex flex-col items-start gap-3.5 p-8; }
+.sg-app .buyer-detail-copy h1 { @apply text-[clamp(24px,3vw,34px)] leading-tight font-extrabold tracking-tight; }
+.sg-app .buyer-detail-price { @apply text-[clamp(22px,2.5vw,30px)] font-extrabold text-[#1e5aa8]; }
+.sg-app .buyer-detail-price small { @apply ml-1.5 text-[13px] font-normal text-slate-500; }
+.sg-app .buyer-detail-stock, .sg-app .buyer-detail-seller p { @apply flex items-center gap-2 text-[13px]; }
+.sg-app .buyer-detail-stock { @apply text-[#1e5aa8]; }
+.sg-app .buyer-detail-seller { @apply w-full border-y border-slate-200 py-4; }
+.sg-app .buyer-detail-seller h2 { @apply mb-1.5 text-[15px] font-bold; }
+.sg-app .buyer-detail-seller p { @apply text-slate-500; }
+.sg-app .buyer-trace-grid { @apply grid grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)] items-start gap-6; }
+.sg-app .buyer-trace-content { @apply grid gap-6; }
+.sg-app .buyer-trace-aside { @apply sticky top-28; }
+.sg-app .buyer-trace-aside .trace-card { @apply mt-5 w-full border-0 bg-[#f7faff] p-5; }
+.sg-app .buyer-fisherman-groups { @apply grid gap-7; }
+.sg-app .buyer-fisherman-heading { @apply flex items-center gap-2 pb-3 text-[#1e5aa8]; }
+.sg-app .buyer-fisherman-heading h3 { @apply text-sm font-bold; }
+.sg-app .buyer-fisherman-heading span { @apply ml-auto text-[11px] text-slate-500; }
+.sg-app .buyer-source-list { @apply grid list-none gap-4; }
+.sg-app .buyer-source-list > li { @apply flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 p-4; }
+.sg-app .buyer-source-list h3 { @apply mb-1 text-[15px] font-bold; }
+.sg-app .buyer-source-list dl { @apply grid basis-full grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3.5; }
+.sg-app .buyer-source-list dt { @apply text-[11px] text-slate-500; }
+.sg-app .buyer-source-list dd { @apply mt-1 text-xs [overflow-wrap:anywhere]; }
+.sg-app #sumber-nelayan { scroll-margin-top: 110px; }
+.sg-app .tracking-history { @apply mt-6 list-none; }
+.sg-app .tracking-history > li { @apply relative flex gap-3.5 pb-6; }
+.sg-app .tracking-history > li::before { @apply absolute top-2.5 bottom-0 left-[5px] w-px bg-slate-200; content: ""; }
+.sg-app .tracking-history > li:last-child::before { @apply hidden; }
+.sg-app .history-dot { @apply relative mt-1.5 size-[11px] shrink-0 rounded-full bg-[#93c5fd]; }
+.sg-app .tracking-history > li:first-child .history-dot { @apply bg-[#1e5aa8]; }
+.sg-app .tracking-history b { @apply text-[13px]; }
+.sg-app .tracking-history p { @apply mt-1 text-xs leading-7 text-slate-600 [overflow-wrap:anywhere]; }
+.sg-app .tracking-history time { @apply mt-1.5 block text-[11px] text-slate-500; }
+.sg-app .buyer-evidence { @apply mt-3 text-xs text-[#1e5aa8]; }
+.sg-app .buyer-evidence summary { @apply min-h-11 cursor-pointer py-3; }
+.sg-app .buyer-evidence li { @apply flex items-center gap-1.5 py-1 [overflow-wrap:anywhere]; }
+.sg-app .buyer-evidence a { @apply underline [overflow-wrap:anywhere]; }
+.sg-app .buyer-source-trace .lot-card { @apply m-0 w-full max-w-none; }
+.sg-app .buyer-source-trace .lot-body { @apply p-6; }
+.trace-source-card .lot-head { @apply grid grid-cols-[minmax(0,1fr)_auto] items-start gap-6; }
+.trace-source-card .lot-head > div:first-child { @apply min-w-0; }
+.trace-source-card .lot-head p { @apply [overflow-wrap:anywhere]; }
+.trace-source-card .lot-price-wrap { @apply grid justify-items-end gap-2 text-right; }
+.trace-source-card .lot-stock { @apply m-0 inline-flex w-fit items-center justify-end gap-2 whitespace-nowrap; }
+.trace-source-card .lot-stock svg { @apply size-[18px] shrink-0; }
+.sg-app .buyer-source-trace .verified { @apply bg-[#e0f2fe] text-[#1e5aa8]; }
+.sg-app .buyer-source-trace .trace-fishermen > li { @apply flex items-start gap-3 p-4; }
+.sg-app .buyer-source-trace .trace-fishermen > li > svg { @apply mt-0.5 size-[18px] shrink-0 text-[#1e5aa8]; }
+.sg-app .buyer-source-trace .trace-fishermen > li > span { @apply grid min-w-0 flex-1 gap-2; }
+.sg-app .buyer-source-trace .trace-fishermen small { @apply block leading-7; }
+.sg-app .buyer-source-trace .trace-fishermen small svg { @apply mr-1 inline size-3.5 align-middle; }
+.sg-app .buyer-source-trace .trace-history { @apply mt-6 pt-5; }
+.sg-app .buyer-source-trace .lot-steps-title { @apply mb-3.5; }
+.sg-app .buyer-source-trace .lot-steps-title > svg { @apply hidden; }
+.sg-app .buyer-source-trace .trace-card { @apply mt-7 w-full max-w-[340px]; }
+.sg-app .buyer-source-trace .trace-steps li { @apply [overflow-wrap:anywhere]; }
+.sg-app .buyer-source-trace .trace-steps li > span { @apply leading-7; }
+.sg-app .buyer-source-trace .trace-steps a { @apply text-[#1e5aa8] underline; }
+.sg-app .buyer-source-trace .trace-steps ul { @apply list-none; }
+.sg-app .buyer-source-trace .trace-steps ul li { @apply flex items-center gap-1.5 py-1; }
+
+@media (max-width: 1050px) {
+  .sg-app .sg-header-inner { @apply gap-5; }
+  .sg-app .sg-desktop-nav { @apply gap-3.5; }
+  .sg-app .sg-account div { @apply hidden; }
+  .sg-app .price-hero-copy { @apply p-7; }
+  .sg-app .sg-product-grid { @apply grid-cols-3; }
+  .sg-app .sg-footer { @apply gap-6; }
+}
+@media (max-width: 760px) {
+  .sg-app { @apply pb-20; }
+  .sg-app .sg-header-inner { @apply flex-wrap gap-3 px-4 py-3; }
+  .sg-app .sg-brand > strong { @apply text-[21px]; }
+  .sg-app .sg-desktop-nav, .sg-app .sg-header-spacer { @apply hidden; }
+  .sg-app .sg-search { @apply order-3 max-w-none basis-full; }
+  .sg-app .sg-mobile-nav { @apply fixed right-0 bottom-0 left-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white px-2 pt-2; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .sg-app .sg-mobile-nav > a { @apply grid min-h-11 min-w-14 justify-items-center gap-1 p-1 text-[11px] text-slate-500; }
+  .sg-app .sg-mobile-nav a[aria-current] { @apply font-bold text-[#1e5aa8]; }
+  .sg-app .sg-market, .sg-app .sg-workspace { @apply px-4 pt-5; }
+  .sg-app .sg-workspace { @apply gap-5; }
+  .sg-app .price-hero { @apply grid-cols-1; }
+  .sg-app .price-hero-story { @apply min-h-[285px]; }
+  .sg-app .price-hero-copy { @apply max-w-[430px] p-6; }
+  .sg-app .price-hero-copy h1 { @apply text-[30px]; }
+  .sg-app .hero-location { @apply mb-4; }
+  .sg-app .price-hero-copy p { @apply max-w-[290px]; }
+  .sg-app .price-date-controls input { @apply text-base; }
+  .sg-app .market-benefits { @apply mb-6 justify-between gap-3 py-5; }
+  .sg-app .market-benefits > span { @apply flex-1 flex-col gap-2 text-center text-[11px]; }
+  .sg-app .sg-page-heading h1 { @apply text-[25px]; }
+  .sg-app .sg-page-heading h2 { @apply text-[22px]; }
+  .sg-app .sg-page-heading p { @apply text-xs; }
+  .sg-app .catalog-toolbar { @apply flex-col items-stretch; }
+  .sg-app .sg-categories { @apply gap-1.5; }
+  .sg-app .sg-categories button { @apply px-3 text-[11px]; }
+  .sg-app .sg-sort { @apply justify-between; }
+  .sg-app .sg-sort select { @apply min-w-40; }
+  .sg-app .sg-product-grid { @apply grid-cols-2 gap-3; }
+  .sg-app .sg-product-info { @apply p-3; }
+  .sg-app .sg-product-info h3 { @apply text-xs; }
+  .sg-app .sg-product-price { @apply text-[17px]; }
+  .sg-app .sg-product-photo { @apply aspect-square; }
+  .sg-app .sg-footer { @apply mt-7 grid-cols-1 gap-6 py-7; }
+  .sg-app .sg-footer nav { @apply grid grid-cols-2 gap-2; }
+  .sg-app .sg-panel, .sg-app .sg-dialog-body { @apply p-5; }
+  .sg-app .sg-form input:not([type="checkbox"]), .sg-app .sg-form textarea, .sg-app .sg-form select { @apply text-base; }
+  .sg-app .sg-dialog { @apply w-[calc(100%-24px)]; }
+  .sg-app .profile-grid, .sg-app .buyer-product-detail, .sg-app .buyer-trace-grid { @apply grid-cols-1 gap-5; }
+  .sg-app .buyer-detail-photo { @apply aspect-[1.3] min-h-0; }
+  .sg-app .buyer-detail-copy { @apply p-5; }
+  .sg-app .buyer-trace-aside { @apply static; }
+  .sg-app .buyer-trace-aside .trace-card { @apply max-w-none; }
+  .sg-app .sg-catalog { scroll-margin-top: 145px; }
+  .sg-app .buyer-source-trace .lot-body { @apply p-5; }
+  .trace-source-card .lot-head { @apply grid-cols-1 gap-4; }
+  .trace-source-card .lot-price-wrap { @apply flex w-full flex-row items-center justify-between border-t border-slate-200 pt-3 text-left; }
+  .trace-source-card .lot-stock { @apply w-auto; }
+  .sg-app .buyer-source-trace .lot-price { @apply text-[25px]; }
+  .sg-app .buyer-source-trace .lot-head h1 { @apply text-2xl; }
+}
+@media (max-width: 360px) {
+  .sg-app .sg-market, .sg-app .sg-workspace { @apply px-3; }
+  .sg-app .price-hero-board { @apply p-4; }
+  .sg-app .sg-product-info { @apply p-2.5; }
+  .sg-app .sg-product-price { @apply text-[15px]; }
+  .sg-app .buyer-source-list dl { @apply grid-cols-1; }
+}
+@keyframes sgSurfaceEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sg-app .sg-market, .sg-app .sg-workspace, .sg-app .sg-dialog { animation: none; }
+  .sg-app .sg-product, .sg-app .sg-primary, .sg-app .sg-secondary { @apply transition-none; }
+  .sg-app .sg-product:hover { @apply transform-none; }
+}

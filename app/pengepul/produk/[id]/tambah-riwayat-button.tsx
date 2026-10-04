@@ -15,7 +15,6 @@ export default function TambahRiwayatButton({ productId, subProductId }: Props) 
   const [open, setOpen] = useState(false);
   const [stage, setStage] = useState<HistoryStage>(HISTORY_STAGES[0]);
   const [note, setNote] = useState("");
-  const [quantityDelta, setQuantityDelta] = useState("0");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +24,7 @@ export default function TambahRiwayatButton({ productId, subProductId }: Props) 
     const data = new FormData();
     data.set("stage", stage);
     data.set("note", note);
-    data.set("quantityDelta", quantityDelta);
+    data.set("quantityDelta", "0");
     setBusy(true);
     try {
       const res = await addHistoryEventAction(productId, subProductId, data);
@@ -34,9 +33,10 @@ export default function TambahRiwayatButton({ productId, subProductId }: Props) 
         return;
       }
       setNote("");
-      setQuantityDelta("0");
       setOpen(false);
       router.refresh();
+    } catch {
+      setError("Riwayat belum dapat disimpan. Periksa koneksi lalu coba lagi.");
     } finally {
       setBusy(false);
     }
@@ -51,7 +51,7 @@ export default function TambahRiwayatButton({ productId, subProductId }: Props) 
   }
 
   return (
-    <form className="receipt-event-form" onSubmit={submit}>
+    <form className="form receipt-event-form" onSubmit={submit}>
       <header>
         <strong>Tambah riwayat</strong>
         <button type="button" className="icon-button" aria-label="Tutup" onClick={() => setOpen(false)}>
@@ -78,15 +78,7 @@ export default function TambahRiwayatButton({ productId, subProductId }: Props) 
           placeholder="ex: kapal bersandar di Tambak 07:20"
         />
       </label>
-      <label>
-        Perubahan stok (kg)
-        <input
-          type="number"
-          step="0.1"
-          value={quantityDelta}
-          onChange={(e) => setQuantityDelta(e.target.value)}
-        />
-      </label>
+      <p className="hint">Riwayat proses tidak mengubah stok. Catat perubahan jumlah melalui Terima atau Jual.</p>
       <div className="form-actions">
         <button type="submit" className="primary-button" disabled={busy}>
           {busy ? "Menyimpan…" : "Simpan"}

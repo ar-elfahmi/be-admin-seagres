@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Printer, QrCode } from "lucide-react";
+import { Download, Printer, QrCode } from "lucide-react";
 import * as QRCodeLibrary from "qrcode";
 import { useEffect, useState, type FormEvent } from "react";
 
@@ -10,10 +10,13 @@ interface TraceCardProps {
   productName: string;
   url: string;
   compact?: boolean;
+  downloadable?: boolean;
 }
 
-export default function TraceCard({ barcode, productName, url, compact = false }: TraceCardProps) {
-  const [qrUrl, setQrUrl] = useState("");
+export default function TraceCard({ barcode, productName, url, compact = false, downloadable = false }: TraceCardProps) {
+  const [qr, setQr] = useState<{ target: string; compact: boolean; image: string; error: boolean } | null>(null);
+  const current = qr?.target === url && qr.compact === compact ? qr : null;
+  const qrUrl = current?.image || "";
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -26,9 +29,9 @@ export default function TraceCard({ barcode, productName, url, compact = false }
           margin: 1,
           color: { dark: "#1e5aa8", light: "#ffffff" },
         });
-        if (!cancelled) setQrUrl(data);
+        if (!cancelled) setQr({ target: url, compact, image: data, error: false });
       } catch {
-        if (!cancelled) setQrUrl("");
+        if (!cancelled) setQr({ target: url, compact, image: "", error: true });
       }
     })();
     return () => {
@@ -62,14 +65,15 @@ export default function TraceCard({ barcode, productName, url, compact = false }
             unoptimized
           />
         ) : (
-          <span>Menyiapkan QR…</span>
+          <span role="status">{current?.error ? "QR belum dapat dibuat. Muat ulang halaman untuk mencoba lagi." : "Menyiapkan QR…"}</span>
         )}
       </span>
       <span className="trace-card-name">{productName}</span>
       <span className="trace-card-code">{barcode}</span>
-      <button type="submit" className="primary-button" disabled={busy}>
+      <button type="submit" className="primary-button" disabled={busy || !qrUrl}>
         <Printer /> {busy ? "Mencetak…" : "Cetak label"}
       </button>
+      {downloadable && qrUrl ? <a href={qrUrl} download={`${barcode}.png`} className="sg-secondary"><Download size={17} />Simpan QR</a> : null}
     </form>
   );
 }

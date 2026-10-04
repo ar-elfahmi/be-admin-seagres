@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Camera, MapPin, RefreshCw, Trash2 } from "lucide-react";
+import { uploadBudgetError } from "../../lib/upload-policy";
 import { renderOverlay, type CaptureContext } from "./verified-photo-overlay";
 
 export interface VerifiedDoc {
@@ -16,7 +17,7 @@ export interface VerifiedDoc {
   capturedAccuracyM: number | null;
 }
 
-interface Coords {
+export interface CaptureCoords {
   lat: number;
   lng: number;
   accuracyM: number;
@@ -28,6 +29,7 @@ interface Props {
   productLabel: string;
   docs: VerifiedDoc[];
   onChange: (docs: VerifiedDoc[]) => void;
+  onCoords?: (coords: CaptureCoords) => void;
   helperText?: string;
 }
 
@@ -46,22 +48,27 @@ export default function VerifiedPhotoCapture({
   productLabel,
   docs,
   onChange,
+  onCoords,
   helperText,
 }: Props) {
-  const [coords, setCoords] = useState<Coords | null>(null);
+  const [coords, setCoords] = useState<CaptureCoords | null>(null);
   const [gpsBusy, setGpsBusy] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const currentDocs = useRef(docs);
 
   useEffect(() => {
-    refreshCoords();
-    // revoke preview URLs on unmount
+    currentDocs.current.filter((previous) => !docs.some((doc) => doc.previewUrl === previous.previewUrl)).forEach((doc) => URL.revokeObjectURL(doc.previewUrl));
+    currentDocs.current = docs;
+  }, [docs]);
+
+  useEffect(() => {
+    // Request location only after an explicit user action, not on mounting a form.
     return () => {
-      docs.forEach((doc) => URL.revokeObjectURL(doc.previewUrl));
+      currentDocs.current.forEach((doc) => URL.revokeObjectURL(doc.previewUrl));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function refreshCoords() {
@@ -73,15 +80,18 @@ export default function VerifiedPhotoCapture({
     setGpsError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setCoords({
+        const next = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           accuracyM: pos.coords.accuracy,
           capturedAt: new Date(pos.timestamp).toISOString(),
-        });
+        };
+        setCoords(next);
+        onCoords?.(next);
         setGpsBusy(false);
       },
       (err) => {
+        setCoords(null);
         setGpsError(`Tidak bisa mendapatkan lokasi (${err.message}).`);
         setGpsBusy(false);
       },
@@ -95,10 +105,19 @@ export default function VerifiedPhotoCapture({
       setCaptureError("Aktifkan lokasi dulu sebelum mengambil foto bukti.");
       return;
     }
+    if (Date.now() - Date.parse(coords.capturedAt) > 120000) {
+      setCaptureError("Lokasi sudah lebih dari dua menit. Pilih refresh lokasi sebelum menambahkan foto.");
+      return;
+    }
+    const budgetError = uploadBudgetError([...docs, ...Array.from(files)]);
+    if (budgetError) {
+      setCaptureError(budgetError);
+      return;
+    }
     setCaptureError(null);
     setBusy(true);
+    const next: VerifiedDoc[] = [];
     try {
-      const next: VerifiedDoc[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files.item(i);
         if (!file) continue;
@@ -112,6 +131,7 @@ export default function VerifiedPhotoCapture({
           accuracyM: coords.accuracyM,
         };
         const { blob } = await renderOverlay(file, ctx);
+        if (blob.size > 6 * 1024 * 1024) throw new Error("Foto hasil pemrosesan lebih dari 6 MB. Gunakan foto lebih kecil.");
         const previewUrl = URL.createObjectURL(blob);
         next.push({
           id: newDocKey(),
@@ -126,11 +146,16 @@ export default function VerifiedPhotoCapture({
         });
       }
       if (next.length) {
-        onChange([...docs, ...next]);
+        const outputError = uploadBudgetError([...docs, ...next]);
+        if (outputError) {
+          next.forEach((doc) => URL.revokeObjectURL(doc.previewUrl));
+          setCaptureError(outputError);
+        } else onChange([...docs, ...next]);
       } else {
         setCaptureError("File bukan gambar. Ambil foto lewat tombol kamera.");
       }
     } catch (err) {
+      next.forEach((doc) => URL.revokeObjectURL(doc.previewUrl));
       setCaptureError(
         err instanceof Error ? err.message : "Gagal memproses foto."
       );
@@ -194,7 +219,7 @@ export default function VerifiedPhotoCapture({
         accept="image/*"
         capture="environment"
         multiple
-        disabled={busy || !coords}
+        disabled={busy || gpsBusy || !coords}
         onChange={(e) => handleFiles(e.currentTarget.files)}
       />
       {helperText ? <small className="capture-helper">{helperText}</small> : null}
@@ -203,6 +228,8 @@ export default function VerifiedPhotoCapture({
         <ul className="file-list">
           {docs.map((doc) => (
             <li key={doc.id} className="verified-doc">
+              {/* Local blob previews should not pass through the image optimizer. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={doc.previewUrl}
                 alt={`Foto bukti ${doc.filename}`}
@@ -213,7 +240,7 @@ export default function VerifiedPhotoCapture({
                 <strong>{doc.filename}</strong>
                 <small>
                   {(doc.size / 1024).toFixed(1)} KB ·{' '}
-                  {new Date(doc.capturedAt).toLocaleString('id-ID')}
+                  {new Date(doc.capturedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                 </small>
                 <small>
                   {formatCoord(doc.capturedLat, 'U', 'S')} ·{' '}
@@ -239,11 +266,11 @@ export default function VerifiedPhotoCapture({
         <div className="capture-banner">
           <Camera aria-hidden="true" />
           <p>
-            <strong>Ambil foto bukti langsung dari kamera.</strong>
+            <strong>Tambahkan foto bukti dengan lokasi pencatatan.</strong>
             <span>
-              Aktifkan izin GPS pada browser lalu pilih tombol kamera. Foto
-              otomatis dibakar dengan stempel waktu, koordinat, dan identitas
-              pengepul.
+              Pilih ambil lokasi, lalu ambil foto di ponsel atau unggah foto di
+              laptop. Stempel menunjukkan waktu dan lokasi pencatatan saat ini,
+              bukan bukti lokasi asli foto maupun persetujuan verifikator.
             </span>
           </p>
         </div>
@@ -252,9 +279,9 @@ export default function VerifiedPhotoCapture({
         type="button"
         className="link-button"
         onClick={() => inputRef.current?.click()}
-        disabled={busy || !coords}
+        disabled={busy || gpsBusy || !coords}
       >
-        <Camera /> {busy ? 'Memproses…' : 'Ambil foto lagi'}
+        <Camera /> {busy ? 'Memproses…' : 'Ambil / unggah foto bukti'}
       </button>
     </div>
   );
