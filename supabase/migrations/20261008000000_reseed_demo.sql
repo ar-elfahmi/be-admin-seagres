@@ -90,8 +90,8 @@ delete from public.sub_products
     select id from public.products where pengepul_id = 'USR-DEMO'
   );
 delete from public.products where pengepul_id = 'USR-DEMO';
-delete from public.orders where id like 'PO-%';
-delete from public.lots where id like 'SGR-%';
+delete from public.orders where id in ('PO-040926-01', 'PO-040926-02', 'PO-130926-01', 'PO-130926-02');
+delete from public.lots where id in ('SGR-LEGACY-001', 'SGR-LEGACY-002');
 delete from public.reports where reporter_user_id in ('USR-DEMO', 'USR-DEMO-CUST', 'USR-DEMO-BUYER');
 delete from public.users where id in ('USR-DEMO', 'USR-DEMO-CUST', 'USR-DEMO-BUYER');
 delete from public.prices where name in ('Bandeng', 'Udang Vaname', 'Kerang Hijau', 'Bandeng Tanpa Duri');
